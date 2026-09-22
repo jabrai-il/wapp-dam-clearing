@@ -64,17 +64,16 @@
 \maketitle
 
 \begin{abstract}
-\small\setlength{\parskip}{0.3em}
+\small\setlength{\parskip}{0.2em}
 \begin{spacing}{1.0}
-\noindent Le Code régional du marché de l'électricité de l'Afrique de l'Ouest (REMC-WA, résolution 018/ERERA/25) organise un marché day-ahead centralisé dont les objets (ordres horaires, ordres en bloc à ratio minimal d'acceptation, blocs liés, groupes exclusifs, allocation implicite des interconnexions, un prix par zone et par heure) sont ceux de l'enchère couplée européenne. Personne dans la sous-région n'a encore vu ce marché fonctionner, et les résultats du futur opérateur ne pourront être vérifiés qu'avec un second moteur capable de les reproduire.
+\noindent Le Code régional du marché de l'électricité de l'Afrique de l'Ouest (REMC-WA, résolution 018/ERERA/25) organise un marché day-ahead centralisé dont les objets (ordres horaires et en bloc, blocs liés, groupes exclusifs, allocation implicite des interconnexions, prix zonaux horaires) sont ceux de l'enchère couplée européenne. Personne dans la sous-région n'a encore vu ce marché fonctionner ; vérifier les résultats du futur opérateur exigera un second moteur capable de les reproduire.
 
-\medskip
-\noindent Nous formalisons le clearing prescrit par le Code comme un programme linéaire mixte de maximisation du bien-être régional et caractérisons les prix zonaux compatibles avec une allocation par les conditions de complémentarité des ordres horaires et des flux. Trois propriétés en découlent : l'existence de prix cohérents à blocs figés, leur non-existence en général pour les blocs (d'où la règle du rejet paradoxal, seule compatible avec le Code) et la terminaison de la procédure de fixation des blocs incohérents. Une implémentation ouverte (Python, solveur libre) accompagne l'article, validée sur 19 cas unitaires et par le rejeu de trois journées du marché ibérique (OMIE) à partir de ses courbes agrégées publiées : les décisions sur les offres complexes étant prises comme données, le moteur retrouve le prix officiel au centime sur 250 des 290 quarts d'heure, et tous les écarts restants tombent dans l'intervalle d'indétermination que seul le couplage avec la France lève.
+\smallskip
+\noindent Nous formalisons le clearing prescrit par le Code comme un programme linéaire mixte de maximisation du bien-être régional et caractérisons les prix zonaux compatibles avec une allocation par les conditions de complémentarité des ordres horaires et des flux. Trois propriétés en découlent : l'existence de prix cohérents à blocs figés, leur non-existence en général pour les blocs (d'où la règle du rejet paradoxal, seule compatible avec le Code) et la terminaison de la procédure de fixation des blocs incohérents. Une implémentation ouverte (Python, solveur libre) accompagne l'article, validée sur 19 cas unitaires et par le rejeu de trois journées du marché ibérique (OMIE) : à décisions sur les offres complexes données, le moteur retrouve le prix officiel au centime sur 250 des 290 quarts d'heure, les écarts restants relevant de l'indétermination que seul le couplage avec la France lève.
 
-\medskip
-\noindent Appliqué à une instance stylisée à quatre zones (Sénégal, Mali, Côte d'Ivoire, Guinée) calibrée sur les rapports publics des opérateurs, le moteur donne au couplage une valeur de 1,1~million d'USD de bien-être par jour en hivernage. En saison sèche, la convention de pertes ordonne les prix le long des chaînes d'importation, un plafond de prix plus bas augmente le délestage en rendant des blocs de pointe incohérents, et un acheteur qui ne peut pas payer le plafond est rationné par son prix, non par la physique : le Mali perd 15~\% de sa demande alors que la capacité d'import existe.\par\smallskip
-\textbf{Mots-clés} : marché day-ahead ; couplage de marchés ; ordres en bloc ; prix non convexes ; WAPP ; CEDEAO ; Sénégal.\\
-\textbf{Codes JEL} : L94, D44, C61, Q41, O55.
+\smallskip
+\noindent Appliqué à une instance stylisée à quatre zones (Sénégal, Mali, Côte d'Ivoire, Guinée) calibrée sur des données publiques, le moteur donne au couplage une valeur de 1,1~million d'USD de bien-être par jour en hivernage. En saison sèche, un plafond plus bas augmente le délestage en rendant des blocs de pointe incohérents, et un acheteur qui ne peut pas payer le plafond est rationné par son prix, non par la physique : le Mali perd 15~\% de sa demande alors que la capacité d'import existe.\par\vspace{0.15em}
+\textbf{Mots-clés} : marché day-ahead ; couplage de marchés ; ordres en bloc ; prix non convexes ; WAPP ; CEDEAO ; Sénégal. \textbf{JEL} : L94, D44, C61, Q41, O55.
 \end{spacing}
 \end{abstract}
 
@@ -109,7 +108,7 @@
 
 Le 10 novembre 2025, les réseaux des pays membres du WAPP ont fonctionné pendant plus de quatre heures comme un seul réseau synchrone, piloté depuis le Centre d'information et de coordination de Calavi \citep{wapp2025sync}. La synchronisation permanente ouvre la voie à la Phase 2 du Marché régional de l'électricité de la CEDEAO, dont les règles sont fixées par le REMC-WA \citep{remcwa2025} : un marché de gré à gré avec droits physiques de transport, et un marché day-ahead (DAM) centralisé opéré par l'opérateur système et de marché (SMO) comme contrepartie unique.
 
-Le DAM du Code n'est pas une construction nouvelle. Ses types d'ordres (\MC{13.1.2.1}), son allocation implicite des capacités (\MC{16.1}) et son objectif de maximisation du surplus (\MC{15.2.1}, \MC{15.3.4}) sont ceux de l'enchère couplée européenne, dont l'algorithme fait l'objet d'une description publique \citep{euphemia2020} et d'une littérature d'optimisation établie \citep{oneill2005,meeus2009,vanvyve2011,martin2014,madani2015}. Ce qui manque en Afrique de l'Ouest, c'est la pratique : aucune utility, aucun régulateur, aucun analyste n'a encore vu ce marché tourner, et les procédures opérationnelles (« DAM Procedure », « DAM Clearing Procedure ») restent à publier.
+Le DAM du Code n'est pas une construction nouvelle. Ses types d'ordres (\MC{13.1.2.1}), son allocation implicite des capacités (\MC{16.1}) et son objectif de maximisation du surplus (\MC{15.2.1}, \MC{15.3.4}) sont ceux de l'enchère couplée européenne, dont l'algorithme fait l'objet d'une description publique \citep{euphemia2025} et d'une littérature d'optimisation établie \citep{oneill2005,meeus2009,vanvyve2011,martin2014,madani2015}. Ce qui manque en Afrique de l'Ouest, c'est la pratique : aucune utility, aucun régulateur, aucun analyste n'a encore vu ce marché tourner, et les procédures opérationnelles (« DAM Procedure », « DAM Clearing Procedure ») restent à publier.
 
 Cet article poursuit trois objectifs.
 
@@ -122,6 +121,8 @@ Cet article poursuit trois objectifs.
 Le plan suit ces objectifs. La section~\ref{sec:code} résume les règles publiques du DAM. La section~\ref{sec:formulation} donne la formulation et les propriétés. La section~\ref{sec:algo} décrit l'algorithme et l'implémentation. La section~\ref{sec:validation} présente la validation et la section~\ref{sec:application} applique le moteur à un scénario stylisé. La section~\ref{sec:ouverts} liste les paramètres à fixer par le SMO et l'ARREC. La section~\ref{sec:conclusion} conclut.
 
 \section{Le marché day-ahead du REMC-WA : règles publiques}\label{sec:code}
+
+Le Code de 2025 est la deuxième génération de règles du marché régional. La directive du Conseil des ministres de la CEDEAO de juin 2013 en a posé les principes généraux dans le cadre du Protocole sur l'énergie \citep{ecowas2013directive}. L'ARREC a ensuite approuvé, en 2015, les règles de marché rédigées par le WAPP (RMR, résolution 005/ERERA/15), la méthodologie du tarif de transport (006/ERERA/15) et le manuel d'exploitation du réseau interconnecté (007/ERERA/15) \citep{erera2015rmr,erera2015tariff,erera2015manual}. Ces textes ont encadré la phase 1 du marché, faite de contrats bilatéraux et d'échanges au jour le jour ; le REMC-WA \citep{remcwa2025} les remplace ou les intègre et ajoute le marché du jour pour le lendemain qui fait l'objet de cet article. Trois résolutions d'avril 2026 le complètent : la méthodologie du tarif régional de transport (020/ERERA/26), sa procédure d'application (021/ERERA/26) et la procédure de détermination et de collecte des frais de marché (022/ERERA/26) \citep{erera2026rttm,erera2026rettap,erera2026fee} ; aucune ne touche aux règles de clearing. L'ARREC s'appuie, pour ses décisions, sur deux organes consultatifs permanents créés en 2011, le comité des régulateurs nationaux et le comité des opérateurs ; c'est devant eux que les points ouverts de la section~\ref{sec:ouverts} ont vocation à être tranchés.
 
 \begin{table}[ht]
 \centering\small
@@ -176,6 +177,8 @@ Les variables sont les ratios $x_o\in[0,1]$, $r_b\in[0,1]$, les indicateurs $u_b
 \end{align}
 L'objectif \eqref{eq:obj} est le bien-être régional de \MC{15.3.4} ; \eqref{eq:bal} est l'équilibre zonal, pertes déduites à l'arrivée (une lecture de \MC{13.5.3} parmi d'autres, voir section~\ref{sec:ouverts}) ; \eqref{eq:cons} traduit \MC{16.1} et \MC{13.1.2.1}~b--d. Sans blocs, \eqref{eq:obj}--\eqref{eq:cons} est un programme linéaire ; avec blocs, un programme linéaire mixte.
 
+\paragraph{Pourquoi un programme linéaire mixte et non quadratique.} L'objectif \eqref{eq:obj} est linéaire en $x_o$ parce que chaque ordre horaire est une marche : son prix limite $p_o$ vaut pour toute la quantité $q_o$, et le surplus d'une acceptation partielle est proportionnel à la fraction acceptée. C'est la lecture littérale du Code, qui définit l'ordre horaire par un couple prix-quantité (\MC{13.1.2.1}~a, \MC{13.1.3.2}) et ne mentionne pas d'interpolation. EUPHEMIA admet en plus des ordres interpolés, où le prix varie linéairement entre deux points consécutifs de la courbe ; l'aire sous un segment est alors quadratique en la fraction acceptée, et le problème maître devient un programme quadratique mixte (MIQP), résolu par un branch-and-cut dédié \citep[§5.1, §7.4 et §8]{euphemia2025}. Retenir les marches a trois conséquences pour le SMO : le clearing relève d'un solveur linéaire mixte libre, sans licence commerciale ; les prix cohérents de la définition~\ref{def:coherent} restent des prix d'ordres (à la monnaie, le prix zonal est celui d'un ordre partiellement accepté), ce qui rend le recalcul par un tiers exact au centime ; et l'indétermination du prix entre deux marches, traitée à la section~\ref{sec:algo}, est le prix à payer, absent des courbes interpolées où le croisement est un point unique. Si les procédures du SMO introduisaient l'interpolation (section~\ref{sec:ouverts}), la formulation resterait valable en remplaçant \eqref{eq:obj} par une fonction concave quadratique par morceaux, et l'implémentation devrait changer de solveur.
+
 \subsection{Prix zonaux}
 
 \begin{definition}[Prix cohérents]\label{def:coherent}
@@ -201,7 +204,7 @@ f_{\ell,h}=A_{\ell,h} &\;\Rightarrow\; (1-\lambda_\ell)\,\pi_{z',h}\ge\pi_{z,h} 
 \sum_{b'\in T(b)} s_{b'}\,r_{b'}\Big(p_{b'}V_{b'}-\sum_{h\in H_{b'}}q_{b',h}\,\pi_{z,h}\Big)\;\ge\;0 .
 \end{equation}
 
-\noindent Pour une feuille, \eqref{eq:famille} dit que le bloc est dans la monnaie en moyenne pondérée. Pour un parent, qu'il peut être hors de la monnaie si ses enfants acceptés compensent sa perte. Ce sont les règles 3 et 4 de la description publique de l'enchère européenne \citep{euphemia2020}, que le Code (\MC{13.1.2.1}~c) n'exclut ni n'impose ; on y ajoute la contrainte $r_{\text{enfant}}\le r_{\text{parent}}$ (règle 1). L'ensemble des prix cohérents pour les ordres horaires et les flux est noté $\Pi(x,f)$.
+\noindent Pour une feuille, \eqref{eq:famille} dit que le bloc est dans la monnaie en moyenne pondérée. Pour un parent, qu'il peut être hors de la monnaie si ses enfants acceptés compensent sa perte. Ce sont les règles 3 et 4 de la description publique de l'enchère européenne \citep{euphemia2025}, que le Code (\MC{13.1.2.1}~c) n'exclut ni n'impose ; on y ajoute la contrainte $r_{\text{enfant}}\le r_{\text{parent}}$ (règle 1). L'ensemble des prix cohérents pour les ordres horaires et les flux est noté $\Pi(x,f)$.
 \end{definition}
 
 \begin{proposition}[Existence à blocs figés]\label{prop:existence}
@@ -226,7 +229,7 @@ Cette non-existence est la difficulté classique des enchères non convexes \cit
 
 \begin{itemize}
 \item \textbf{Un complément hors prix} (« uplift ») versé aux blocs acceptés à perte. \MC{15.3} ne l'envisage pas : le règlement se fait au prix zonal.
-\item \textbf{Le rejet paradoxal} : interdire l'acceptation hors de la monnaie et tolérer le rejet de blocs qui seraient profitables. C'est la règle de l'enchère européenne \citep{euphemia2020}.
+\item \textbf{Le rejet paradoxal} : interdire l'acceptation hors de la monnaie et tolérer le rejet de blocs qui seraient profitables. C'est la règle de l'enchère européenne \citep{euphemia2025}.
 \end{itemize}
 
 Seule la seconde est compatible avec un règlement au prix zonal ; c'est celle que nous retenons.
