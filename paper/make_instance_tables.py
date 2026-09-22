@@ -70,7 +70,7 @@ def hours_str(hs: list[int]) -> str:
 
 
 def fmt(x: float) -> str:
-    return f"{x:,.0f}".replace(",", "\\,") if float(x).is_integer() else f"{x:.2f}".replace(".", ",")
+    return f"{x:,.0f}".replace(",", "\\,") if float(x).is_integer() else f"{x:.2f}"
 
 
 def main():
@@ -129,7 +129,7 @@ def main():
             elif d["group"]:
                 link = "groupe " + GROUP_NAME.get(d["group"], tex(d["group"]))
             mw = fmt(list(d["q"].values())[0])
-            out.append(f"{tex(z) if first else ''} & {side}{BLOCK_DESC.get(bid, tex(bid))} & {hours_str(list(d['q']))} & {mw} & {fmt(d['price'])} & {d['mar']:.1f}".replace(".", ",") + f" & {link} \\\\ \\rowsep")
+            out.append(f"{tex(z) if first else ''} & {side}{BLOCK_DESC.get(bid, tex(bid))} & {hours_str(list(d['q']))} & {mw} & {fmt(d['price'])} & {d['mar']:.1f}" + f" & {link} \\\\ \\rowsep")
             first = False
     out[-1] = out[-1].replace(" \\rowsep", "")
     out.append(r"\end{longtable}")
