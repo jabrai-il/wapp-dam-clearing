@@ -1,0 +1,466 @@
+% Working paper : moteur de clearing day-ahead REMC-WA
+% Compilation : make (pdflatex + bibtex + pdflatex x2)
+\documentclass[a4paper,12pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage[english,french]{babel}
+\usepackage{amsmath, amssymb, amsthm}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage{longtable}
+\usepackage{colortbl}
+\newcommand{\rowsep}{\addlinespace[2pt]\arrayrulecolor{black!35}\hline\arrayrulecolor{black}\addlinespace[3pt]}
+\renewcommand{\arraystretch}{1.25}
+\usepackage{xcolor}
+\usepackage[font=small,labelfont=bf,margin=0.8cm,labelsep=period]{caption}
+\usepackage[square,comma,numbers,sort]{natbib}
+\usepackage{setspace}
+\usepackage[colorlinks=true,linkcolor=blue!45!black,citecolor=blue!45!black,urlcolor=blue!45!black]{hyperref}
+
+\usepackage[nobottomtitles*]{titlesec}
+\renewcommand{\bottomtitlespace}{0.15\textheight}
+\titlespacing*{\section}{0pt}{3.2ex}{1.4ex}
+\titlespacing*{\subsection}{0pt}{2.4ex}{1.0ex}
+\titlespacing*{\paragraph}{0pt}{1.8ex}{1em}
+
+\geometry{margin=2.5cm}
+\setlength{\parskip}{0.7em}
+\renewcommand{\baselinestretch}{1.15}
+\setlist{itemsep=0.45em, topsep=0.6em, parsep=0pt, leftmargin=1.6em}
+\setlist[itemize]{label=\textbullet}
+\frenchsetup{StandardItemLabels=true}
+\setlength{\abovedisplayskip}{0.8em}
+\setlength{\belowdisplayskip}{0.8em}
+\setlength{\textfloatsep}{1.4em}
+\renewcommand{\topfraction}{0.92}
+\renewcommand{\floatpagefraction}{0.85}
+\renewcommand{\textfraction}{0.05}
+\usepackage{etoolbox}
+\makeatletter
+\patchcmd{\@maketitle}{\vskip 2em}{\vskip 0.8em}{}{}
+\makeatother
+\setlength{\intextsep}{1.4em}
+
+\newtheorem{proposition}{Proposition}
+\newtheorem{corollary}{Corollaire}
+\theoremstyle{definition}
+\newtheorem{definition}{Définition}
+\newtheorem{remark}{Remarque}
+\newtheorem{example}{Exemple}
+
+\newcommand{\todo}[1]{\textcolor{red!70!black}{[\textbf{À compléter :} #1]}}
+\newcommand{\MC}[1]{MC~#1}
+
+\title{\textbf{Un moteur de clearing indépendant pour le marché day-ahead ouest-africain}\\[4pt]
+\large Formulation, propriétés et reproduction ouverte des règles du REMC-WA}
+\author{Djiby Seck\thanks{Chercheur indépendant ; analyste quantitatif spécialisé dans les marchés de l'énergie (EDF R\&D, TotalEnergies, GEMS-Engie) ; créateur de Sakkanal. Contact : \href{mailto:admin@jabra-il.com}{admin@jabra-il.com} ; \url{https://jabra-il.com}. L'auteur s'exprime à titre personnel. Le moteur est écrit à partir des seuls textes publics et ne réutilise aucun code ni document d'un employeur passé ou présent. Licence CC BY 4.0 pour le texte, MIT pour le code. Commentaires bienvenus.}}
+\date{Working paper, version 0.4 (brouillon), septembre 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\small\setlength{\parskip}{0.3em}
+\begin{spacing}{1.0}
+\noindent Le Code régional du marché de l'électricité de l'Afrique de l'Ouest (REMC-WA, résolution 018/ERERA/25) organise un marché day-ahead centralisé dont les objets (ordres horaires, ordres en bloc à ratio minimal d'acceptation, blocs liés, groupes exclusifs, allocation implicite des interconnexions, un prix par zone et par heure) sont ceux de l'enchère couplée européenne. Personne dans la sous-région n'a encore vu ce marché fonctionner, et les résultats du futur opérateur ne pourront être vérifiés qu'avec un second moteur capable de les reproduire.
+
+\medskip
+\noindent Nous formalisons le clearing prescrit par le Code comme un programme linéaire mixte de maximisation du bien-être régional et caractérisons les prix zonaux compatibles avec une allocation par les conditions de complémentarité des ordres horaires et des flux. Trois propriétés en découlent : l'existence de prix cohérents à blocs figés, leur non-existence en général pour les blocs (d'où la règle du rejet paradoxal, seule compatible avec le Code) et la terminaison de la procédure de fixation des blocs incohérents. Une implémentation ouverte (Python, solveur libre) accompagne l'article, validée sur 19 cas unitaires.
+
+\medskip
+\noindent Appliqué à une instance stylisée à quatre zones (Sénégal, Mali, Côte d'Ivoire, Guinée) calibrée sur les rapports publics des opérateurs, le moteur donne au couplage une valeur de 1,1~million d'USD de bien-être par jour en hivernage. En saison sèche, la convention de pertes ordonne les prix le long des chaînes d'importation, un plafond de prix plus bas augmente le délestage en rendant des blocs de pointe incohérents, et un acheteur qui ne peut pas payer le plafond est rationné par son prix, non par la physique : le Mali perd 15~\% de sa demande alors que la capacité d'import existe.\par\smallskip
+\textbf{Mots-clés} : marché day-ahead ; couplage de marchés ; ordres en bloc ; prix non convexes ; WAPP ; CEDEAO ; Sénégal.\\
+\textbf{Codes JEL} : L94, D44, C61, Q41, O55.
+\end{spacing}
+\end{abstract}
+
+\newpage
+\begin{otherlanguage}{english}
+\begin{center}
+\vspace*{1.5em}
+{\large\bfseries An Independent Clearing Engine for the West African\\ Day-Ahead Electricity Market:\\[3pt]}
+{\normalsize Formulation, Properties and an Open Reproduction of the REMC-WA Rules}
+\end{center}
+\vspace{1em}
+\begin{center}
+\begin{minipage}{0.92\textwidth}
+\sloppy
+\begin{spacing}{1.05}
+\noindent\textbf{Abstract.} The Regional Electricity Market Code of West Africa (REMC-WA, resolution 018/ERERA/25) sets up a centralised day-ahead market whose objects (hourly orders, block orders with a minimum acceptance ratio, linked blocks, exclusive groups, implicit allocation of cross-border capacity, one price per zone and hour) are those of the European coupled auction. No actor in the region has yet observed such a market in operation, and the future operator's results can only be verified with a second engine able to reproduce them.
+
+\medskip
+\noindent We formalise the clearing prescribed by the Code as a mixed-integer linear programme maximising regional welfare and characterise the zonal prices compatible with an allocation through the complementarity conditions of hourly orders and flows. Three properties follow: coherent prices exist once blocks are fixed; they do not exist in general for blocks (hence the paradoxical-rejection rule, the only one compatible with the Code); and the block-fixing procedure terminates. An open implementation (Python, free solver) accompanies the paper, validated on 19 unit cases.
+
+\medskip
+\noindent Applied to a stylised four-zone instance (Senegal, Mali, Côte d'Ivoire, Guinea) calibrated on the utilities' public reports, the engine values coupling at 1.1~million USD of daily welfare in the wet season. In the dry season, the loss convention orders prices along import chains, a lower price cap increases load shedding by making peak blocks incoherent, and a buyer unable to pay the cap is rationed by its bid, not by physics: Mali loses 15~\% of its demand while import capacity is available.\par\smallskip
+\textbf{Keywords}: day-ahead market; market coupling; block orders; non-convex pricing; WAPP; ECOWAS; Senegal.\\
+\textbf{JEL codes}: L94, D44, C61, Q41, O55.
+\end{spacing}
+\end{minipage}
+\end{center}
+\end{otherlanguage}
+\newpage
+
+\section{Introduction}
+
+Le 10 novembre 2025, les réseaux des pays membres du WAPP ont fonctionné pendant plus de quatre heures comme un seul réseau synchrone, piloté depuis le Centre d'information et de coordination de Calavi \citep{wapp2025sync}. La synchronisation permanente ouvre la voie à la Phase 2 du Marché régional de l'électricité de la CEDEAO, dont les règles sont fixées par le REMC-WA \citep{remcwa2025} : un marché de gré à gré avec droits physiques de transport, et un marché day-ahead (DAM) centralisé opéré par l'opérateur système et de marché (SMO) comme contrepartie unique.
+
+Le DAM du Code n'est pas une construction nouvelle. Ses types d'ordres (\MC{13.1.2.1}), son allocation implicite des capacités (\MC{16.1}) et son objectif de maximisation du surplus (\MC{15.2.1}, \MC{15.3.4}) sont ceux de l'enchère couplée européenne, dont l'algorithme fait l'objet d'une description publique \citep{euphemia2020} et d'une littérature d'optimisation établie \citep{oneill2005,meeus2009,vanvyve2011,martin2014,madani2015}. Ce qui manque en Afrique de l'Ouest, c'est la pratique : aucune utility, aucun régulateur, aucun analyste n'a encore vu ce marché tourner, et les procédures opérationnelles (« DAM Procedure », « DAM Clearing Procedure ») restent à publier.
+
+Cet article poursuit trois objectifs.
+
+\begin{enumerate}
+\item \textbf{Formaliser} sans ambiguïté le clearing que le Code prescrit, en signalant les points que le texte laisse ouverts.
+\item \textbf{Établir} les propriétés mathématiques qui contraignent toute implémentation conforme, en particulier sur les prix en présence de blocs.
+\item \textbf{Fournir} une implémentation ouverte et vérifiable, dans l'esprit de la reproduction ouverte que nous avons appliquée au tarif de détail sénégalais \citep{seck2026woyofal}, afin que le régulateur régional, les régulateurs nationaux et les participants disposent, avant le lancement, d'un second moteur capable de recalculer les prix publiés et d'expliquer tout écart.
+\end{enumerate}
+
+Le plan suit ces objectifs. La section~\ref{sec:code} résume les règles publiques du DAM. La section~\ref{sec:formulation} donne la formulation et les propriétés. La section~\ref{sec:algo} décrit l'algorithme et l'implémentation. La section~\ref{sec:validation} présente la validation et la section~\ref{sec:application} applique le moteur à un scénario stylisé. La section~\ref{sec:ouverts} liste les paramètres à fixer par le SMO et l'ARREC. La section~\ref{sec:conclusion} conclut.
+
+\section{Le marché day-ahead du REMC-WA : règles publiques}\label{sec:code}
+
+\begin{table}[ht]
+\centering\small
+\setlength{\tabcolsep}{6pt}\renewcommand{\arraystretch}{1.35}\begin{tabular}{p{6.4cm}p{2.7cm}p{5.5cm}}
+\toprule
+Règle & Article & Traduction dans le modèle \\
+\midrule
+DAM centralisé, SMO contrepartie unique & \textbf{\MC{2.3.3}} & Un participant = un portefeuille par zone \\ \rowsep
+Unité de temps horaire, 24 MTU, référence UTC+1 & \textbf{\MC{10.3.3}} & Index $h\in\{1,\dots,24\}$ \\ \rowsep
+Prix en USD/MWh à deux décimales, quantités en MW & \textbf{\MC{13.1.3.2}} & Types et arrondis \\ \rowsep
+Ordres horaires, blocs (prix, MAR, profil), blocs liés, groupes exclusifs & \textbf{\MC{13.1.2.1}} & Objets de la section~\ref{sec:formulation} \\ \rowsep
+Contenu minimal d'un ordre & \textbf{\MC{13.1.3.1}} & Schéma d'import \\ \rowsep
+Rejet automatique : hors plage de prix, au-delà de la limite de trading, import/export au-delà de l'ATC, paramètres invalides & \textbf{\MC{13.1.4.2}--\MC{13.1.4.5}} & Module de validation avec motif \\ \rowsep
+Plage de prix : minimum 0, maximum 50~\% du coût de l'énergie non servie & \textbf{\MC{10.3.4}} & Bornes $\underline p,\overline p$ \\ \rowsep
+Un prix par zone ; offres simultanées sur plusieurs zones & \textbf{\MC{10.3.5}} & Prix zonal $\pi_{z,h}$ \\ \rowsep
+Maximisation du bien-être ; prix d'équilibre par zone interconnectée & \textbf{\MC{15.2.1}, \MC{15.3.4}} & Objectif et prix duaux \\ \rowsep
+Écrêtage du prix de clearing aux bornes & \textbf{\MC{15.3.5}} & Post-traitement signalé \\ \rowsep
+Allocation implicite de la capacité, simultanée au clearing, par heure et direction & \textbf{\MC{16.1.1}--\MC{16.1.5}} & Contraintes ATC ; flux et rentes \\ \rowsep
+Pertes à la charge des vendeurs et acheteurs & \textbf{\MC{13.5.3}} & Facteur de pertes par liaison \\ 
+\bottomrule
+\end{tabular}
+\caption{Règles du REMC-WA reprises par le moteur. Source : \citet{remcwa2025}.}
+\label{tab:regles}
+\end{table}
+
+Le tableau~\ref{tab:regles} résume les articles repris. Trois observations s'imposent à sa lecture.
+
+\begin{itemize}
+\item \textbf{Des objets, pas des procédures.} Le Code fixe la famille d'objets mais renvoie aux procédures du SMO le découpage des zones, l'interpolation des ordres horaires, la règle de départage et le traitement des pertes.
+\item \textbf{Un couplage, pas un empilement.} Un prix par zone et l'allocation implicite des capacités imposent une résolution simultanée de toutes les zones, et non une juxtaposition de marchés nationaux.
+\item \textbf{Une non-convexité assumée mais non traitée.} Les blocs à ratio minimal d'acceptation rendent le problème non convexe. C'est la source de toutes les difficultés de prix discutées ci-dessous, et le Code n'y répond pas explicitement.
+\end{itemize}
+
+\section{Formulation et propriétés}\label{sec:formulation}
+
+\subsection{Objets et notations}
+
+\begin{itemize}
+\item \textbf{Réseau.} $Z$ est l'ensemble des zones, $H=\{1,\dots,24\}$ les heures, $L$ l'ensemble des liaisons orientées $\ell=(z\to z')$, chacune avec une ATC $A_{\ell,h}\ge 0$ et un facteur de pertes $\lambda_\ell\in[0,1[$.
+\item \textbf{Ordres horaires.} Un ordre $o\in O_{z,h}$ porte une quantité $q_o\ge 0$, un prix limite $p_o$ et un sens $s_o\in\{+1,-1\}$ (achat, vente).
+\item \textbf{Blocs.} Un bloc $b\in B_z$ porte un prix $p_b$, un ratio minimal $m_b\in\,]0,1]$, un profil $q_{b,h}\ge0$ sur des heures consécutives $H_b$, un sens $s_b$ et un volume $V_b=\sum_{h\in H_b}q_{b,h}$.
+\item \textbf{Liens.} $\mathcal P$ est l'ensemble des couples (parent, enfant) et $\mathcal E$ celui des groupes exclusifs.
+\end{itemize}
+
+\subsection{Le programme de clearing}
+
+Les variables sont les ratios $x_o\in[0,1]$, $r_b\in[0,1]$, les indicateurs $u_b\in\{0,1\}$ et les flux $f_{\ell,h}\ge0$.
+\begin{align}
+\max\;& \sum_{h}\sum_{z}\sum_{o\in O_{z,h}} s_o\,p_o\,q_o\,x_o + \sum_z\sum_{b\in B_z} s_b\,p_b\,V_b\,r_b \label{eq:obj}\\
+\text{s.c.}\;& \sum_{o\in O_{z,h}}(-s_o)q_o x_o + \sum_{b\in B_z:\,h\in H_b}(-s_b)q_{b,h}r_b = \sum_{\ell\in\mathrm{out}(z)} f_{\ell,h} - \sum_{\ell\in\mathrm{in}(z)}(1-\lambda_\ell)f_{\ell,h} \quad\forall z,h \label{eq:bal}\\
+& 0\le f_{\ell,h}\le A_{\ell,h},\qquad m_b u_b\le r_b\le u_b,\qquad u_{\text{enfant}}\le u_{\text{parent}},\qquad \sum_{b\in E} r_b\le 1\ \ \forall E\in\mathcal E. \label{eq:cons}
+\end{align}
+L'objectif \eqref{eq:obj} est le bien-être régional de \MC{15.3.4} ; \eqref{eq:bal} est l'équilibre zonal, pertes déduites à l'arrivée (une lecture de \MC{13.5.3} parmi d'autres, voir section~\ref{sec:ouverts}) ; \eqref{eq:cons} traduit \MC{16.1} et \MC{13.1.2.1}~b--d. Sans blocs, \eqref{eq:obj}--\eqref{eq:cons} est un programme linéaire ; avec blocs, un programme linéaire mixte.
+
+\subsection{Prix zonaux}
+
+\begin{definition}[Prix cohérents]\label{def:coherent}
+Soit $(x,r,u,f)$ une allocation admissible et $\pi\in\mathbb R^{Z\times H}$ un vecteur de prix.
+
+\medskip
+\noindent\textbf{Ordres horaires.} Les prix sont cohérents pour un ordre horaire $o$ de la zone $z$ à l'heure $h$ si
+\begin{align*}
+x_o = 1 &\;\Rightarrow\; s_o\,(p_o-\pi_{z,h})\ge 0 && \text{(un ordre accepté en totalité est dans la monnaie ou à la monnaie)}\\
+x_o = 0 &\;\Rightarrow\; s_o\,(p_o-\pi_{z,h})\le 0 && \text{(un ordre rejeté est hors de la monnaie ou à la monnaie)}\\
+0<x_o<1 &\;\Rightarrow\; p_o=\pi_{z,h} && \text{(un ordre partiel est à la monnaie).}
+\end{align*}
+
+\noindent\textbf{Flux.} Ils sont cohérents pour une liaison $\ell=(z\to z')$ à l'heure $h$ si
+\begin{align*}
+f_{\ell,h}=0 &\;\Rightarrow\; (1-\lambda_\ell)\,\pi_{z',h}\le\pi_{z,h} && \text{(pas de flux si l'arrivée ne vaut pas le départ)}\\
+f_{\ell,h}=A_{\ell,h} &\;\Rightarrow\; (1-\lambda_\ell)\,\pi_{z',h}\ge\pi_{z,h} && \text{(saturation seulement si l'arrivée vaut plus)}\\
+0<f_{\ell,h}<A_{\ell,h} &\;\Rightarrow\; (1-\lambda_\ell)\,\pi_{z',h}=\pi_{z,h} && \text{(flux libre : prix égaux aux pertes près).}
+\end{align*}
+
+\noindent\textbf{Blocs.} Soit $T(b)$ le sous-arbre des blocs acceptés issu de $b$ dans la relation parent-enfant, avec $T(b)=\{b\}$ pour une feuille. Les prix sont cohérents pour un bloc accepté $b$ ($r_b>0$) si le surplus de sa famille acceptée est non négatif :
+\begin{equation}\label{eq:famille}
+\sum_{b'\in T(b)} s_{b'}\,r_{b'}\Big(p_{b'}V_{b'}-\sum_{h\in H_{b'}}q_{b',h}\,\pi_{z,h}\Big)\;\ge\;0 .
+\end{equation}
+
+\noindent Pour une feuille, \eqref{eq:famille} dit que le bloc est dans la monnaie en moyenne pondérée. Pour un parent, qu'il peut être hors de la monnaie si ses enfants acceptés compensent sa perte. Ce sont les règles 3 et 4 de la description publique de l'enchère européenne \citep{euphemia2020}, que le Code (\MC{13.1.2.1}~c) n'exclut ni n'impose ; on y ajoute la contrainte $r_{\text{enfant}}\le r_{\text{parent}}$ (règle 1). L'ensemble des prix cohérents pour les ordres horaires et les flux est noté $\Pi(x,f)$.
+\end{definition}
+
+\begin{proposition}[Existence à blocs figés]\label{prop:existence}
+Soit $(r^\star,u^\star)$ la décision de blocs d'une solution optimale de \eqref{eq:obj}--\eqref{eq:cons}, et $(x^\star,f^\star)$ une solution optimale du programme linéaire obtenu en figeant $r=r^\star$. Alors l'ensemble $\Pi(x^\star,f^\star)$ des prix cohérents pour les ordres horaires et les flux est un polyèdre non vide ; il contient les variables duales des contraintes \eqref{eq:bal}.
+\end{proposition}
+\begin{proof}
+À blocs figés, le problème est un programme linéaire réalisable et borné ; ses multiplicateurs duaux optimaux des contraintes \eqref{eq:bal} existent et vérifient les conditions de complémentarité, qui sont exactement celles de la définition~\ref{def:coherent}. Réciproquement, toute solution de ces conditions est un multiplicateur dual optimal, et l'ensemble est décrit par des inégalités linéaires en $\pi$.
+\end{proof}
+
+\begin{proposition}[Non-existence en général pour les blocs]\label{prop:blocs}
+Il existe des instances pour lesquelles aucun $\pi\in\Pi(x^\star,f^\star)$ n'est cohérent pour tous les blocs acceptés à l'optimum de \eqref{eq:obj}.
+\end{proposition}
+\begin{proof}
+Une zone, une heure, une demande de 150~MW à 100, un ordre horaire de vente de 100~MW à 50 et un bloc de vente de 100~MW à 60 (MAR~1). Sans le bloc, le bien-être vaut $100\times(100-50)=5\,000$. Avec le bloc accepté et l'ordre horaire à moitié, il vaut $150\times100-100\times60-50\times50=6\,500$ : l'optimum accepte le bloc. Or l'ordre horaire partiellement accepté impose $\pi=50$ (définition~\ref{def:coherent}), et le bloc accepté exige $\pi\ge60$. L'ensemble est vide. Le résultat est indépendant de la règle de départage et des règles de famille.
+\end{proof}
+
+\begin{example}[Règles de famille]\label{ex:famille}
+Une zone, une heure, une demande de 250~MW à 100 et trois blocs de vente liés en chaîne : parent $P$ (100~MW à 150), enfant $C$ (100~MW à 10), petit-enfant $G$ (50~MW à 10). Accepter la chaîne donne un bien-être de $8\,500$. Tout prix cohérent pour la demande vérifie $\pi\le100<150$ : $P$ est hors de la monnaie. Sous la cohérence bloc par bloc (lecture littérale du Code), $P$ est forcé au rejet, la chaîne tombe et le bien-être vaut $0$. Sous \eqref{eq:famille}, la famille est cohérente dès que $100(\pi-150)+150(\pi-10)\ge0$, soit $\pi\ge64$ : la chaîne est acceptée. Le choix entre les deux lectures vaut ici $8\,500$~USD de bien-être et n'est pas tranché par le Code.
+\end{example}
+
+Cette non-existence est la difficulté classique des enchères non convexes \citep{oneill2005,meeus2009,martin2014}. Deux réponses sont possibles.
+
+\begin{itemize}
+\item \textbf{Un complément hors prix} (« uplift ») versé aux blocs acceptés à perte. \MC{15.3} ne l'envisage pas : le règlement se fait au prix zonal.
+\item \textbf{Le rejet paradoxal} : interdire l'acceptation hors de la monnaie et tolérer le rejet de blocs qui seraient profitables. C'est la règle de l'enchère européenne \citep{euphemia2020}.
+\end{itemize}
+
+Seule la seconde est compatible avec un règlement au prix zonal ; c'est celle que nous retenons.
+
+\begin{proposition}[Terminaison]\label{prop:terminaison}
+La procédure qui, à chaque itération, résout \eqref{eq:obj}--\eqref{eq:cons} avec un ensemble $F$ de blocs forcés au rejet ($u_b=0$, $b\in F$), calcule des prix dans $\Pi$ minimisant l'incohérence pondérée \eqref{eq:famille} des blocs acceptés, et ajoute à $F$ au moins un des blocs acceptés restant incohérents (tous, ou seulement le plus incohérent), termine en au plus $|B|+1$ itérations sur une allocation où aucun bloc accepté n'est hors de la monnaie. Le bien-être obtenu est décroissant au fil des itérations.
+\end{proposition}
+\begin{proof}
+$F$ croît strictement à chaque itération non terminale et est borné par $B$. À la dernière itération, soit aucun bloc n'est accepté (cohérence triviale), soit tous les blocs acceptés sont cohérents. Chaque ajout à $F$ restreint l'ensemble admissible, d'où la décroissance du bien-être.
+\end{proof}
+
+\begin{remark}
+La proposition~\ref{prop:terminaison} garantit une solution admissible, pas la meilleure des solutions admissibles : forcer le rejet d'un bloc incohérent peut écarter des allocations de bien-être supérieur où ce bloc serait cohérent grâce à d'autres choix. L'enchère européenne explore ces alternatives par branchement \citep{madani2015} ; notre version 0.2 se contente de la fixation gloutonne, un bloc à la fois (le plus incohérent, ce qui laisse aux autres la chance de redevenir cohérents), journalisée, et publie l'écart de bien-être entre la première et la dernière itération, qui borne la perte due à l'absence de branchement.
+\end{remark}
+
+\begin{corollary}[Rente de congestion]
+Sans pertes, pour tout $\pi\in\Pi$ et toute liaison, la rente $(\pi_{z',h}-\pi_{z,h})f_{\ell,h}$ est non négative, et nulle si la liaison n'est pas saturée. Avec pertes, la quantité non négative est $\big((1-\lambda_\ell)\pi_{z',h}-\pi_{z,h}\big)f_{\ell,h}$.
+\end{corollary}
+
+\section{Algorithme et implémentation}\label{sec:algo}
+
+\begin{enumerate}
+\item \textbf{Validation} des ordres selon \MC{13.1.4}, avec un motif par rejet ; les enfants d'un bloc rejeté sont rejetés.
+\item \textbf{MILP} \eqref{eq:obj}--\eqref{eq:cons} avec $u_b=0$ pour $b\in F$, résolu par HiGHS \citep{huangfu2018highs} via SciPy.
+\item \textbf{Prix} : blocs figés, résolution du LP et lecture des duaux comme point de référence $\hat\pi$ ; puis programme linéaire en $\pi$ sur $\Pi(x^\star,f^\star)$ minimisant $M\sum_{b\text{ accepté}}V_b\,\sigma_b + \|\pi-\hat\pi\|_1$, où $\sigma_b\ge0$ est la violation de cohérence du bloc $b$.
+\item \textbf{Cohérence} : si des $\sigma_b>0$ subsistent, le bloc le plus incohérent $b^\star$ est ajouté à $F$ et l'on retourne en 2.
+\item \textbf{Départage}, neutre pour le bien-être et l'équilibre : les ordres horaires de même zone, heure, sens et prix, à la monnaie, sont servis au prorata de leurs quantités (c'est le partage du délestage entre ordres preneurs de prix, cas fréquent en Afrique de l'Ouest) ; les blocs identiques sont départagés par horodatage puis par un hachage reproductible de leurs paramètres, comme dans l'enchère européenne.
+\item \textbf{Écrêtage} à $[\underline p,\overline p]$ (\MC{15.3.5}) ; arrondi commercial des prix à deux décimales et des volumes publiés au MW entier (\MC{13.1.3.2}), ratio publié recalculé.
+\item \textbf{Rapport de cohérence} : écart maximal par famille de contrainte (équilibre, blocs, bornes, intégralité, ordres horaires paradoxaux, écart de prix sans congestion, blocs hors de la monnaie) et niveau de qualité, sur le modèle de la validation de solution européenne.
+\item \textbf{Sorties} : prix, ratios et volumes, statut des blocs (accepté, rejeté, paradoxalement rejeté, forcé) et surplus de famille, flux et rentes, positions nettes, bien-être total, par zone et avant rejets forcés, demande preneuse de prix non servie, indices de concentration.
+\end{enumerate}
+
+L'étape 3 mérite un commentaire. À blocs figés, une heure où seul un bloc fait face à une demande inélastique a un ensemble de duals qui est un segment entier. Le dual retourné par le solveur y est arbitraire, et l'utiliser tel quel ferait rejeter à tort des blocs cohérents.
+
+Choisir les prix dans $\Pi$ en minimisant l'incohérence rend le résultat indépendant de ce hasard numérique. Pour un moteur d'audit, c'est une exigence de reproductibilité, pas un raffinement.
+
+Le code (\url{https://github.com/jabrai-il/wapp-dam-clearing}, licence MIT) tient en sept modules Python (objets, validation, modèle, prix, clearing, entrées-sorties, ligne de commande) et n'a pour dépendances que NumPy et SciPy. L'instance de la section~\ref{sec:application} (4 zones, 526 ordres horaires, 42 blocs dont 8 familles liées et 7 groupes exclusifs, 6 liaisons orientées, 24 heures) se résout en moins de 0,1~s sur un ordinateur portable ; le passage à quinze zones et quelques milliers d'ordres reste linéaire en pratique tant que le nombre de blocs se compte en centaines, la difficulté combinatoire venant d'eux seuls.
+
+\section{Validation}\label{sec:validation}
+
+Chaque règle de la section~\ref{sec:formulation} fait l'objet d'un cas unitaire dont la valeur attendue est calculée à la main ; les tableaux~\ref{tab:validation} et~\ref{tab:validation2} les résument (19 tests). Tous sont exécutés à chaque modification du code par l'intégration continue du dépôt.
+
+\begin{table}[H]
+\centering\small
+\setlength{\tabcolsep}{6pt}\renewcommand{\arraystretch}{1.25}\begin{tabular}{p{5.2cm}p{6.0cm}p{3.4cm}}
+\toprule
+Cas & Attendu & Vérifie \\
+\midrule
+Une zone, demande 100 à 50, offres 60 à 30 et 60 à 40 & prix 40, second vendeur à 2/3, bien-être 1\,600 & prix dual, acceptation partielle \\ \rowsep
+Deux zones, liaison non saturée & prix unique 20, rente nulle & couplage \\ \rowsep
+Deux zones, liaison de 30~MW saturée & prix 20 / 80, rente $60\times30$ & market splitting \\ \rowsep
+Pertes de 10~\% & prix importateur $=20/0{,}9$ & convention de pertes \\ \rowsep
+Deux exécutions de la même instance & sorties identiques & déterminisme \\
+\bottomrule
+\end{tabular}
+\caption{Cas unitaires, première partie : prix, couplage, pertes, déterminisme. Prix en USD/MWh, quantités en MW.}
+\label{tab:validation}
+\end{table}
+
+\begin{table}[tbp]
+\centering\small
+\setlength{\tabcolsep}{6pt}\renewcommand{\arraystretch}{1.25}\begin{tabular}{p{5.2cm}p{6.0cm}p{3.4cm}}
+\toprule
+Cas & Attendu & Vérifie \\
+\midrule
+Bloc de vente à 30 face à des prix $\ge50$ & accepté & bloc dans la monnaie \\ \rowsep
+Bloc 100~MW à MAR 0,5 face à 70~MW de demande & ratio 0,7 & acceptation partielle \\ \rowsep
+Même bloc face à 30~MW & rejeté & MAR \\ \rowsep
+Chaîne parent 150 / enfant 10 / petit-enfant 10 (ex.~\ref{ex:famille}) & acceptée sous la règle de famille, prix $\ge64$ ; forcée au rejet sous la cohérence bloc par bloc, deux itérations & règles de famille \\ \rowsep
+Enfant feuille à 120 sous un parent à 10 & enfant rejeté & règle 4 \\ \rowsep
+Bloc à 60 contre ordre horaire partiel à 50 (prop.~\ref{prop:blocs}) & bien-être 6\,500 puis 5\,000, bloc forcé, prix 100 & non-existence, terminaison \\ \rowsep
+Groupe exclusif, blocs à 20 et 25 & seul le bloc à 20 accepté & exclusivité \\ \rowsep
+Deux demandes au plafond (300 et 100~MW) pour 200~MW d'offre & 150 et 50~MW servis, prix au plafond, 200~MW délestés & partage du délestage \\ \rowsep
+Deux blocs identiques, horodatages différents & le plus ancien accepté, l'autre paradoxalement rejeté & départage \\ \rowsep
+Ratio 0,35 sur 200~MW ; 100,5 ; 0,125 & 70~MW ; 101 ; 0,13 & arrondi half-up \\ \rowsep
+Ordres hors plage, au-delà de la limite de trading, import au-delà de l'ATC, heure invalide, parent inconnu, MAR nul & rejetés avec l'article du Code attendu & validation \MC{13.1.4} \\
+\bottomrule
+\end{tabular}
+\caption{Cas unitaires, seconde partie : blocs, familles, départage, arrondi, validation des ordres.}
+\label{tab:validation2}
+\end{table}
+
+Deux limites doivent être dites.
+
+\begin{itemize}
+\item Ces cas vérifient la conformité aux règles telles que nous les lisons, pas la conformité aux résultats du futur SMO, qui n'existent pas encore. Dès que des jeux d'essai ou des résultats agrégés seront publiés, le rejeu constituera la validation décisive.
+\item La reconstitution d'une journée d'un marché couplé européen à partir de ses courbes agrégées publiées, prévue comme cas de référence, n'est pas incluse dans cette version.
+\end{itemize}
+
+\section{Application illustrative}\label{sec:application}
+
+L'instance est stylisée. Ses ordres de grandeur viennent des rapports annuels publics des quatre opérateurs \citep{senelec2024,edm2023,edg2024,cienergies2024} et des organismes de bassin \citep{omvs2025,omvg2024}, mais les paliers d'offre, les profils de demande et les capacités disponibles sont des constructions, sans aucune donnée réelle de participant. Elle sert à montrer ce que le moteur produit et comment les règles de la section~\ref{sec:formulation} se manifestent sur une géographie réelle. Le dossier \texttt{examples/wapp4} du dépôt documente chaque chiffre et sa source ; le script \texttt{examples/scenarios.py} reproduit tous les résultats.
+
+Le tableau~\ref{tab:instance} résume le parc de chaque zone par type d'ordre ; l'annexe en donne le détail ordre par ordre. Les centrales à coût de démarrage sont représentées par des familles de blocs liés : un parent de pointe à prix élevé, qui amortit le démarrage, et un enfant de journée au coût variable. Les réservoirs hydrauliques et les centrales de pointe proposent des profils ou des durées alternatifs en groupes exclusifs. Quatre blocs d'achat industriels (cimenterie, mines d'or, zone industrielle, bauxite) introduisent une demande élastique ; le reste de la demande est preneur de prix au plafond.
+
+\begin{table}[H]
+\centering\small
+\setlength{\tabcolsep}{6pt}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{p{2.3cm}p{2.1cm}p{4.6cm}p{5.6cm}}
+\toprule
+Zone (source) & Pointe de demande & Ordres horaires de vente & Blocs \\
+\midrule
+Sénégal \citep{senelec2024} & 1\,159~MW (août 2024) & 8 paliers, de 33 (hydraulique OMVS) à 400~USD/MWh (turbine à gasoil), dont 300~MW de location et Kahone entre 135 et 150 & 13 blocs : 1 bloc de base charbon ; 3 familles liées HFO (pointe et journée) ; 2 groupes exclusifs (Malicounda en trois durées, TAG en deux durées) ; 1 achat industriel \\ \rowsep
+Mali \citep{edm2023} & 475~MW (avril 2023) & 4 paliers, de 33 (hydraulique OMVS et Sotuba) à 320~USD/MWh (diesel) & 8 blocs : 1 groupe exclusif hydraulique (Sélingué) ; 2 familles liées HFO ; 1 bloc de base location diesel ; 1 achat industriel (mines) \\ \rowsep
+Côte d'Ivoire \citep{cienergies2024} & $\approx$1\,800~MW (estimation) & 5 paliers, de 33 (hydraulique) à 200~USD/MWh (HFO) & 13 blocs : 3 blocs de base gaz (Azito, Ciprel, Atinkou), dont 2 avec tranche de pointe liée ; 2 groupes exclusifs hydrauliques (Soubré, Kossou) ; 1 groupe exclusif TAG ; 1 achat industriel \\ \rowsep
+Guinée \citep{edg2024} & 829~MW (nov. 2024) & 2 paliers, 33 (hydraulique fil de l'eau) et 150~USD/MWh (HFO) & 8 blocs : 1 groupe exclusif hydraulique (Souapiti, trois profils) ; 1 tranche de pointe hydraulique ; 1 bloc de base barge HFO ; 1 famille liée HFO ; 1 achat industriel \\
+\bottomrule
+\end{tabular}
+\caption{Instance stylisée à quatre zones (hivernage) : 526 ordres horaires et 42 blocs. Le détail de chaque ordre horaire et de chaque bloc (heures, MW, prix, MAR, liens) figure en annexe, tableaux~\ref{tab:annexe-horaires} et~\ref{tab:annexe-blocs}.}
+\label{tab:instance}
+\end{table}
+
+\begin{itemize}
+\item \textbf{Liaisons} (ATC stylisées, pertes) : ML--SN 150~MW par sens, 4~\% (OMVS) ; CI--ML 200~MW vers ML et 150 vers CI, 4~\%, sur une ligne de 400~MW \citep{wapp2012ferke} dont une partie est supposée déjà allouée par des contrats bilatéraux avec droits physiques de transport, avant le clearing (Phase~1 du Code) ; GN--SN 250~MW par sens, 3~\% (OMVG) ; GN--ML 200~MW, 5~\%, en variante~D seulement \citep{afdb2026guineemali}.
+\item \textbf{Contrainte gaz} : la tranche flexible des cycles combinés ivoiriens est limitée à 300~MW, l'approvisionnement en gaz ayant fait reculer les exportations ivoiriennes de 30~\% en 2024 et d'autres clients (Ghana, Burkina, Liberia) se disputant le même gaz.
+\item \textbf{Saison sèche} : réservoirs à 45~\%, hydraulique fil de l'eau réduite de moitié, combustible malien rationné de moitié ; demande à $-8$~\% au Sénégal, dont la pointe est en hivernage, et à $+5$~\% au Mali, en Côte d'Ivoire et en Guinée, dont les pointes sont en saison sèche et chaude.
+\item \textbf{Plafond} : 1\,300~USD/MWh, soit 50~\% d'un coût de l'énergie non servie de 2\,600~USD/MWh \citep{wapp2018masterplan}.
+\end{itemize}
+
+Six variantes sont calculées sur cette instance, désignées par une lettre dans la suite et dans le script :
+
+\begin{itemize}
+\item \textbf{A} : journée d'hivernage, interconnexions en service ;
+\item \textbf{B} : la même journée avec toutes les ATC à zéro, c'est-à-dire chaque pays seul ;
+\item \textbf{C} : journée de saison sèche, interconnexions en service ;
+\item \textbf{C500} : la même journée avec un plafond de prix à 500~USD/MWh au lieu de 1\,300, les bids au plafond étant ramenés à 500 ;
+\item \textbf{D} : la journée de saison sèche avec, en plus, la future ligne Guinée--Mali ;
+\item \textbf{E} : la journée de saison sèche avec les bids maliens bornés à 180~USD/MWh au lieu du plafond.
+\end{itemize}
+
+\paragraph{Variantes A et B : valeur du couplage en hivernage.} Le tableau~\ref{tab:application} compare la journée d'hivernage avec interconnexions (A) et sans (B).
+
+\begin{itemize}
+\item Le couplage rapporte 1\,141\,684~USD de bien-être sur la journée (+1,2~\%), auxquels s'ajoutent 286\,593~USD de rente de congestion pour le SMO.
+\item Sans interconnexions, le Mali déleste 82~MWh et passe 5 heures au plafond ; le Sénégal et la Guinée délestent 11 et 24~MWh, une heure au plafond chacun. Avec le couplage, aucune zone n'est délestée.
+\item Les flux suivent la géographie réelle : la Côte d'Ivoire alimente le Mali à hauteur de l'ATC résiduelle (4\,779~MWh, liaison saturée 22 heures sur 24), la Guinée alimente le Sénégal (1\,768~MWh) et les échanges Mali--Sénégal restent modestes et équilibrés dans les deux sens.
+\item Le prix moyen du Mali tombe de 462 à 140~USD/MWh et celui du Sénégal de 195 à 140. Celui de la Guinée passe de 160 à 140 en moyenne : son heure au plafond disparaît, ses prix de nuit montent, l'hydraulique guinéenne étant vendue au Sénégal. Le surplus net de chaque zone augmente.
+\end{itemize}
+
+\begin{table}[H]
+\centering\small\setlength{\tabcolsep}{7pt}\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{lrrrrrr}
+\toprule
+ & \multicolumn{2}{c}{Prix moyen (USD/MWh)} & \multicolumn{2}{c}{Surplus des ordres (USD)} & \multicolumn{2}{c}{Délestage (MWh)} \\
+Zone & sans & avec & sans & avec & sans & avec \\
+\midrule\addlinespace[2pt]
+SN & 195,4 & 140,3 & 24\,604\,223 & 24\,661\,505 & 11 & 0 \\
+ML & 461,7 & 139,9 & 9\,627\,562 & 10\,208\,425 & 82 & 0 \\
+CI & 65,2 & 74,6 & 41\,356\,715 & 41\,383\,640 & 0 & 0 \\
+GN & 160,0 & 140,3 & 17\,414\,095 & 17\,604\,117 & 24 & 0 \\\addlinespace[2pt]
+\midrule\addlinespace[2pt]
+Bien-être régional & & & 93\,002\,595 & 94\,144\,279 & & \\
+Rente de congestion & & & 0 & 286\,593 & & \\
+\bottomrule
+\end{tabular}
+\caption{Journée d'hivernage sans interconnexions (variante B) et avec (variante A).}
+\label{tab:application}
+\end{table}
+
+\paragraph{Variante C : saison sèche, une borne physique.} L'étiage réduit les réservoirs à 45~\% et le fil de l'eau de moitié ; la crise de combustible divise par deux le thermique malien. Toute la demande reste offerte au plafond, ce qui suppose que chaque utility paie n'importe quel prix pour être servie : la variante décrit ce que la physique permet, pas ce que les finances permettent.
+
+\begin{itemize}
+\item Le Sénégal, dont la demande est plus basse en saison sèche, devient le fournisseur de ses deux voisins : 2\,072~MWh vers le Mali et 4\,499~MWh vers la Guinée. La liaison Côte d'Ivoire--Mali reste saturée 24 heures sur 24 à son ATC résiduelle de 200~MW.
+\item Le délestage est marginal (16~MWh au Mali, une heure au plafond) ; la rente de congestion vaut 547\,608~USD.
+\item À 21~h, les prix sont de 150 au Sénégal (Kahone marginale), 156,25 au Mali ($150/0{,}96$), 154,64 en Guinée ($150/0{,}97$) et 130 en Côte d'Ivoire, isolée par la saturation. La chaîne de prix suit la chaîne des pertes depuis la zone exportatrice.
+\end{itemize}
+
+\paragraph{Variante C500 : sensibilité au plafond.} Avec un plafond à 500~USD/MWh au lieu de 1\,300, le délestage augmente : 198~MWh au Mali (trois heures au plafond) et 109~MWh en Guinée (quatre heures), contre 16 et 0. Un plafond plus bas réduit la valeur que le clearing attribue à la demande ; des familles de blocs de pointe, cohérentes à 1\,300, deviennent incohérentes à 500 et sont forcées au rejet (quatre itérations au lieu de deux), et l'offre qu'elles portaient disparaît. Le plafond n'est donc pas qu'un paramètre de règlement : il change les quantités servies. Sa valeur relève de l'ARREC (\MC{10.3.4}) et n'est pas publiée.
+
+\paragraph{Variante D : valeur de la ligne Guinée--Mali.} Ajouter la ligne Linsan--Fomi--Bamako (200~MW) à la journée de saison sèche n'apporte que 3\,074~USD de bien-être sur l'optimum non contraint (première itération, avant tout rejet forcé) : la contrainte qui compte est la saturation de Côte d'Ivoire--Mali, en amont. La solution finale de D est même inférieure de 78\,416~USD à celle de C, parce que la procédure gloutonne de fixation des blocs perd 128\,891~USD en D contre 47\,400 en C. Sur cette journée, la valeur de la ligne est inférieure à l'erreur de la procédure : c'est une limite de la version 0.2 (section~\ref{sec:conclusion}), que la publication de \texttt{welfare\_first} permet de mesurer.
+
+\paragraph{Variante E : un acheteur qui ne peut pas payer le plafond.} EDM-SA vend en moyenne 106~FCFA/kWh, environ 180~USD/MWh, et produit à 160~FCFA/kWh \citep{edm2023}. On borne donc ses bids à 180~USD/MWh en saison sèche, tout le reste étant identique à C.
+
+\begin{itemize}
+\item Le Mali perd 1\,301~MWh, soit 15,1~\% de sa demande journalière, entre 16~h et 22~h, alors que la liaison ivoirienne reste saturée et que le Sénégal continue de lui livrer 1\,583~MWh : aux heures où le prix régional dépasse 180, ses bids sont hors de la monnaie.
+\item Son prix zonal ne dépasse plus 180 et celui du Sénégal 187,5 ($180/0{,}96$) : le Mali n'est plus un preneur de prix mais l'acheteur marginal de la région, et c'est lui qui fixe les prix de ses voisins.
+\item Sa position nette est de 900\,955~USD pour la journée, soit 123~USD/MWh servi, en dessous de son coût de production de 266 : la variante est financièrement rationnelle pour EDM-SA là où C ne l'est pas. En C, le Mali paierait 1,7~million d'USD par jour, l'équivalent de son chiffre d'affaires annuel en dix mois.
+\end{itemize}
+
+Le marché ne rationne pas par la physique mais par la solvabilité. La limite de trading de la chambre de compensation (\MC{13.1.4.3}) produira le même effet par un autre canal. Pour un pays en crise financière du secteur, c'est la question centrale, et elle n'est pas une question d'algorithme. E, et non C, est le cas de référence pour le Mali.
+
+Les six variantes s'exécutent avec un rapport de cohérence au niveau OK sur les sept contrôles.
+
+\section{Paramètres que les procédures du SMO devront fixer}\label{sec:ouverts}
+
+\begin{enumerate}
+\item \textbf{Zones de prix} : une par zone de réglage nationale par défaut ; fusion ou scission changent les prix.
+\item \textbf{Ordres horaires} : marches (retenu) ou interpolation linéaire entre points de prix (non mentionnée par le Code).
+\item \textbf{Départage} entre allocations de même bien-être : prix le plus favorable puis prorata (retenu), ou autre.
+\item \textbf{Blocs paradoxalement rejetés} : admis (retenu), avec ou sans limite de « distance à la monnaie ».
+\item \textbf{Blocs liés} : cohérence de famille (retenu, exemple~\ref{ex:famille}) ou bloc par bloc ; groupes exclusifs, définis en \MC{13.1.2.1}~d mais absents de la liste des ordres admis en \MC{13.1.2.2}.
+\item \textbf{Partage du délestage} entre ordres preneurs de prix d'une même zone (prorata, retenu) et entre zones d'un ensemble non congestionné (à fixer).
+\item \textbf{Pertes} : appliquées aux flux à l'arrivée (retenu), aux offres, ou aux deux ; facteurs approuvés par les régulateurs.
+\item \textbf{Plafond de prix} : 50~\% du coût de l'énergie non servie (\MC{10.3.4}) ; la valeur retenue conditionne l'écrêtage et, comme le montre la variante~C500, les quantités servies.
+\item \textbf{Publication} : format des courbes agrégées et des résultats, sans lequel aucun audit externe n'est possible.
+\end{enumerate}
+
+\section{Conclusion}\label{sec:conclusion}
+
+Le marché day-ahead du REMC-WA est bien défini dans ses objets et sous-défini dans ses procédures. Nous avons montré que, sous les règles du Code, des prix cohérents existent toujours pour les ordres horaires et les flux une fois les blocs décidés (proposition~\ref{prop:existence}), qu'ils n'existent pas en général pour les blocs (proposition~\ref{prop:blocs}), ce qui impose la règle du rejet paradoxal, et qu'une procédure simple de fixation des blocs incohérents termine sur une solution admissible (proposition~\ref{prop:terminaison}). L'implémentation ouverte qui accompagne l'article reproduit ces règles, choisit les prix dans l'ensemble des duals compatibles pour être indépendante du hasard numérique, et publie un rapport de cohérence.
+
+Trois résultats de l'application méritent d'être retenus par les acteurs.
+
+\begin{itemize}
+\item La lecture des blocs liés, que le Code laisse ouverte, vaut plusieurs milliers de dollars par famille de blocs et par jour (exemple~\ref{ex:famille}).
+\item La convention de pertes ordonne les prix le long des chaînes d'importation et, en pénurie, décide seule quelle zone est délestée en premier (variante~C) ; le plafond de prix change les quantités servies et non seulement les paiements (variante~C500).
+\item Un acheteur qui ne peut pas offrir le plafond est rationné par son prix, non par la physique (variante~E) : la solvabilité des utilities, et la limite de trading qui la traduit (\MC{13.1.4.3}), pèsera plus que tout raffinement d'algorithme.
+\end{itemize}
+
+Ces trois points, avec les neuf paramètres de la section~\ref{sec:ouverts}, devraient figurer dans la DAM Clearing Procedure avant le lancement, et être vérifiables par un second moteur.
+
+Les limites de cette version sont connues : fixation gloutonne des blocs sans branchement, dont la perte de bien-être est mesurée et peut dépasser l'effet étudié (variante~D), partage du délestage limité à l'intérieur d'une zone, pas de marché OTC ni de droits de transport, pas de règlement financier, pas de cas de référence rejoué.
+
+Les étapes suivantes sont, dans l'ordre :
+
+\begin{enumerate}
+\item le rejeu des premiers jeux d'essai ou résultats publiés par le SMO ;
+\item une couche de simulation fondamentale (parcs et demandes nationaux à partir des plans directeurs publics) pour produire des scénarios réalistes ;
+\item les couches de stratégie d'offre et de surveillance pour les participants et les régulateurs.
+\end{enumerate}
+
+\clearpage
+\appendix
+\section*{Annexe. Détail de l'instance stylisée}\label{sec:annexe}
+
+Les deux tableaux qui suivent sont générés automatiquement depuis le fichier d'ordres du dépôt (\texttt{examples/wapp4/orders\_hivernage.csv}) par le script \texttt{paper/make\_instance\_tables.py}. Prix en USD/MWh, quantités en MW. Les blocs de pointe couvrent 18~h à 23~h et les blocs de journée 7~h à 17~h, sauf indication contraire.
+
+\small
+\input{instance_tables}
+\normalsize
+
+\clearpage
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}
