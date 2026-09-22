@@ -29,7 +29,7 @@ Code archivé sur Zenodo : version 0.4.0, DOI [10.5281/zenodo.22904811](https://
 ## Ce que fait le moteur
 
 1. **Validation** des ordres à l'import avec motif de rejet par article du Code (MC 13.1.4.2 à 13.1.4.5).
-2. **Clearing** : programme linéaire mixte (blocs entiers) résolu par HiGHS via SciPy ; maximisation du surplus.
+2. **Clearing** : programme linéaire mixte (blocs entiers) résolu par HiGHS via SciPy (solveur interchangeable par le protocole `Solver`) ; maximisation du surplus.
 3. **Prix** : blocs figés, l'ensemble des prix duaux compatibles avec l'allocation est caractérisé par les
    conditions de complémentarité des ordres horaires et des flux ; on y choisit les prix qui minimisent
    l'incohérence des blocs acceptés, puis l'écart au dual du solveur.
@@ -75,10 +75,10 @@ print(r.prices, r.links[0].flow, r.congestion_rent())
 ## Structure
 
 ```
-src/wapp_dam/   orders.py (objets), validation.py (MC 13.1.4), model.py (MILP), prices.py (prix, familles), clearing.py (algorithme, départage, rapport), io.py, cli.py
-tests/          20 cas : équilibre, ordre multi-MTU, market splitting, pertes, blocs, MAR, familles de blocs liés, exclusifs, non-existence de prix, délestage au prorata, départage, arrondi, écrêtage, validation
+src/wapp_dam/   orders.py (objets), validation.py (MC 13.1.4), model.py (MILP), solvers.py (protocole Solver, HighsSolver), prices.py (PriceDeterminer : prix, familles), clearing.py (Clearing : algorithme, départage, rapport), io.py, cli.py
+tests/          21 cas : équilibre, solveur par protocole, ordre multi-MTU, market splitting, pertes, blocs, MAR, familles de blocs liés, exclusifs, non-existence de prix, délestage au prorata, départage, arrondi, écrêtage, validation
 examples/       wapp4/ : instance stylisée 4 zones × 24 h, deux saisons (sources dans son README) ; scenarios.py ; omie/ : rejeu du marché ibérique ; gme/ : rejeu du marché italien au niveau de l'ordre (cas de référence)
-docs/           spécification v0.1 + addendums v0.2 à v0.4, catalogue des types d'ordres Euphemia vs REMC-WA, note de concerns, sources PDF versionnées
+docs/           spécification v0.1 + addendums v0.2 à v0.5, catalogue des types d'ordres Euphemia vs REMC-WA, note de concerns, sources PDF versionnées
 paper/          working paper (LaTeX) ; make_instance_tables.py régénère l'annexe (instance_tables.tex) depuis le CSV
 ```
 

@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.5.0 (2026-09-23)
+
+Refactorisation sans changement de résultat (rejeux OMIE et GME identiques, 21 tests).
+
+- Architecture : le solveur numérique est abstrait derrière le protocole `Solver` (`solvers.py` : `solve_milp`,
+  `solve_lp`, `solve_projection`), implémenté par `HighsSolver` (HiGHS via SciPy pour le MILP et les LP, highspy pour
+  le QP de projection, secours SLSQP) ; `clear(market, solver=...)` accepte une autre implémentation (CPLEX, Gurobi)
+  sans modification du moteur.
+- Les étapes de l'algorithme sont regroupées dans deux classes à état explicite : `Clearing` (itération MILP / prix /
+  cohérence, départage, rapport, publication) et `PriceDeterminer` (conditions de complémentarité, LP de prix,
+  affinage quadratique). Les fonctions `clear` et `determine_prices` restent comme façades ; les options passent par
+  `MarketParams` et non plus par des arguments séparés.
+- Correction de résultats publiés : les CSV de prix du rejeu GME (N2) de la 0.4.0 avaient été produits avec le secours
+  SLSQP, qui échouait sans avertir sur la plupart des heures ; le code conservait alors le point de la passe L1, qui
+  n'est pas l'optimum de la règle « midpoint » sur deux heures du 20 janvier et deux du 15 septembre. Régénérés avec
+  le QP HiGHS : décisions et flux inchangés, prix exacts inchangés (628 et 589 sur 672), écart moyen 0.05 -> 0.06
+  (20 janvier) et 0.13 -> 0.15 (15 septembre). L'échec de la projection est désormais signalé dans le journal.
+
 ## 0.4.0 (2026-09-22)
 
 Archivé sur Zenodo : DOI 10.5281/zenodo.22904811 (concept 10.5281/zenodo.22902401).

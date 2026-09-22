@@ -2,7 +2,7 @@ cff-version: 1.2.0
 message: "Si vous utilisez ce moteur, merci de citer le logiciel et le working paper compagnon."
 type: software
 title: "wapp-dam-clearing : moteur de clearing day-ahead conforme au REMC-WA (marché régional CEDEAO / WAPP)"
-version: 0.4.0
+version: 0.5.0
 date-released: 2026-09-22
 license: MIT
 doi: 10.5281/zenodo.22904811
