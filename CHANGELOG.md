@@ -2,7 +2,7 @@
 
 ## 0.4.0 (2026-09-22)
 
-Archivé sur Zenodo sous le DOI concept 10.5281/zenodo.22902401 (le DOI de version est indiqué sur la page Zenodo).
+Archivé sur Zenodo : DOI 10.5281/zenodo.22904811 (concept 10.5281/zenodo.22902401).
 
 - Moteur : ordres horaires multi-MTU (`HourlyOrder.hours`, ratio unique, dans la monnaie sur la moyenne des prix,
   EPD-2025 §5.1) ; règle de levée de l'indétermination des prix `price_rule="midpoint"` (milieu de l'intervalle
