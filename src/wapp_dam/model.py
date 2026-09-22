@@ -75,7 +75,7 @@ def build(market: Market, hourly: list[HourlyOrder], blocks: list[BlockOrder],
     # Objectif : max sum s p q x + sum s p V_b r_b  ->  min -(...)
     c = np.zeros(n)
     for i, o in enumerate(hourly):
-        c[idx.col_x(i)] = -o.side * o.price * o.quantity
+        c[idx.col_x(i)] = -o.side * o.price * o.quantity * o.n_mtu
     for j, b in enumerate(blocks):
         c[idx.col_r(j)] = -b.side * b.price * b.volume
 
@@ -85,7 +85,8 @@ def build(market: Market, hourly: list[HourlyOrder], blocks: list[BlockOrder],
         for h in hours:
             idx.balance_index[(z, h)] = len(idx.balance_index)
     for i, o in enumerate(hourly):
-        rows.append(idx.balance_index[(o.zone, o.hour)]); cols.append(idx.col_x(i)); vals.append(-o.side * o.quantity)
+        for h in o.mtus:
+            rows.append(idx.balance_index[(o.zone, h)]); cols.append(idx.col_x(i)); vals.append(-o.side * o.quantity)
     for j, b in enumerate(blocks):
         for h, q in b.profile.items():
             rows.append(idx.balance_index[(b.zone, h)]); cols.append(idx.col_r(j)); vals.append(-b.side * q)

@@ -2,6 +2,8 @@
 
 orders.csv : order_id,participant,zone,type,side,hour,quantity_mw,price,mar,parent_id,exclusive_group,cross_border
   - type ∈ {hourly, block} ; side ∈ {buy, sell} ; un bloc occupe une ligne par heure de son profil.
+  - hour d'un ordre horaire : un entier, ou une plage « 5-8 » pour un ordre multi-MTU (un seul ratio, dans la monnaie
+    sur la moyenne des prix des MTU, EPD-2025 §5.1).
 atc.csv    : link_id,from_zone,to_zone,hour,atc_mw,loss_factor
 participants.csv (optionnel) : participant,trading_limit_mw
 """
@@ -23,6 +25,20 @@ def _f(v: str | None, default: float | None = None) -> float | None:
     return float(v)
 
 
+
+def _parse_hours(s: str) -> tuple[int, ...]:
+    """« 7 » -> (7,) ; « 5-8 » -> (5, 6, 7, 8)."""
+    s = s.strip()
+    if "-" in s:
+        a, b = s.split("-", 1)
+        return tuple(range(int(a), int(b) + 1))
+    return (int(s),)
+
+
+def _fmt_hours(o: HourlyOrder) -> str:
+    hs = o.mtus
+    return f"{hs[0]}-{hs[-1]}" if len(hs) > 1 else str(hs[0])
+
 def load_market(orders_csv: str | Path, atc_csv: str | Path, participants_csv: str | Path | None = None,
                 params: MarketParams | None = None) -> Market:
     params = params or MarketParams()
@@ -33,11 +49,13 @@ def load_market(orders_csv: str | Path, atc_csv: str | Path, participants_csv: s
         for row in csv.DictReader(fh):
             zones.add(row["zone"])
             if row["type"].strip().lower() == "hourly":
+                hs = _parse_hours(row["hour"])
                 hourly.append(HourlyOrder(
                     id=row["order_id"], participant=row["participant"], zone=row["zone"],
-                    hour=int(row["hour"]), side=_SIDE[row["side"].strip().lower()],
+                    hour=hs[0], side=_SIDE[row["side"].strip().lower()],
                     quantity=float(row["quantity_mw"]), price=float(row["price"]),
                     cross_border=str(row.get("cross_border", "")).strip() in ("1", "true", "yes", "oui"),
+                    hours=hs if len(hs) > 1 else None,
                 ))
             else:
                 block_rows.setdefault(row["order_id"], []).append(row)
@@ -81,7 +99,7 @@ def write_results(res: ClearingResult, out_dir: str | Path, price_max: float = f
     with open(out / "hourly_orders.csv", "w", newline="", encoding="utf-8") as fh:
         w = csv.writer(fh); w.writerow(["order_id", "participant", "zone", "hour", "side", "quantity_mw", "price", "ratio", "accepted_mw"])
         for o in res.validation.accepted_hourly:
-            w.writerow([o.id, o.participant, o.zone, o.hour, "buy" if o.side == BUY else "sell", o.quantity, o.price,
+            w.writerow([o.id, o.participant, o.zone, _fmt_hours(o), "buy" if o.side == BUY else "sell", o.quantity, o.price,
                         f"{res.hourly_ratio[o.id]:.6f}", f"{res.hourly_mw[o.id]:.3f}"])
     with open(out / "blocks.csv", "w", newline="", encoding="utf-8") as fh:
         w = csv.writer(fh); w.writerow(["order_id", "participant", "zone", "side", "price", "ratio", "ratio_published", "status",

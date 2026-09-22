@@ -255,3 +255,25 @@ def test_block_coherence_iteration_forces_rejection():
 def test_determinism(two_zone_market):
     r1, r2 = clear(two_zone_market(atc=30)), clear(two_zone_market(atc=30))
     assert r1.prices == r2.prices and r1.hourly_ratio == r2.hourly_ratio
+
+
+
+def test_multi_mtu_order_cleared_on_mean_price():
+    """Ordre de vente sur deux MTU (EPD-2025 §5.1) : un seul ratio, dans la monnaie sur la moyenne des prix.
+    MTU 1 : demande 100 à 200, offre 100 à 50. MTU 2 : demande 100 à 200, offre 60 à 50 puis 40 à 140.
+    L'ordre bi-MTU vend 40 MW à 90 sur les deux MTU. L'accepter coûte 40 x (90 - 50) = 1 600 au MTU 1 (il déplace
+    l'offre à 50) et rapporte 40 x (140 - 90) = 2 000 au MTU 2 (il déplace l'offre à 140) : il est accepté en entier,
+    hors de la monnaie au MTU 1 (prix 50) mais dans la monnaie en moyenne (prix 2 dans [130, 140])."""
+    m = Market(zones=["Z"], params=MarketParams(hours=2, price_max=500.0))
+    m.hourly = [
+        H("d1", "Z", 1, BUY, 100, 200), H("g1", "Z", 1, SELL, 100, 50),
+        H("d2", "Z", 2, BUY, 100, 200), H("g2a", "Z", 2, SELL, 60, 50), H("g2b", "Z", 2, SELL, 40, 140),
+        H("mm", "Z", 1, SELL, 40, 90, hours=(1, 2)),
+    ]
+    r = clear(m)
+    assert r.hourly_ratio["mm"] == pytest.approx(1.0)
+    assert r.hourly_mw["g2b"] == pytest.approx(0)
+    assert r.prices[("Z", 1)] == pytest.approx(50.0)
+    assert 130 - 1e-6 <= r.prices[("Z", 2)] <= 140 + 1e-6
+    assert r.coherence.level == "OK"
+    assert r.welfare == pytest.approx(100 * 200 + 100 * 200 - 60 * 50 - 60 * 50 - 2 * 40 * 90)

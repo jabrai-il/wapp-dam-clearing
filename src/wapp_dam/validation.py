@@ -66,7 +66,7 @@ def validate(market: Market) -> ValidationReport:
             rep.rejections.append(Rejection(o.id, "MC 13.1.3.1", "identifiant d'ordre dupliqué"))
             continue
         seen.add(o.id)
-        if o.side not in (BUY, SELL) or o.quantity < 0 or o.hour not in hours or o.zone not in zones:
+        if o.side not in (BUY, SELL) or o.quantity < 0 or any(h not in hours for h in o.mtus) or o.zone not in zones:
             rep.rejections.append(Rejection(o.id, "MC 13.1.4.4", "type, sens, heure, zone ou quantité invalide"))
             continue
         if not _price_ok(o.price, market):
@@ -74,19 +74,19 @@ def validate(market: Market) -> ValidationReport:
                 o.id, "MC 13.1.4.2",
                 f"prix {o.price} hors de la plage [{p.price_min}, {p.price_max}] USD/MWh"))
             continue
-        if not limit_ok(o.participant, {o.hour: o.quantity}):
+        if not limit_ok(o.participant, {h: o.quantity for h in o.mtus}):
             rep.rejections.append(Rejection(
                 o.id, "MC 13.1.4.3", f"limite de trading du participant {o.participant} dépassée à l'heure {o.hour}"))
             continue
         if o.cross_border:
-            cap = atc_out[(o.zone, o.hour)] if o.side == SELL else atc_in[(o.zone, o.hour)]
+            cap = min(atc_out[(o.zone, h)] if o.side == SELL else atc_in[(o.zone, h)] for h in o.mtus)
             if o.quantity > cap + p.tolerance:
                 rep.rejections.append(Rejection(
                     o.id, "MC 13.1.4.5",
                     f"quantité {'export' if o.side == SELL else 'import'} {o.quantity} MW supérieure à l'ATC "
                     f"{'sortant' if o.side == SELL else 'entrant'} {cap} MW à l'heure {o.hour}"))
                 continue
-        commit(o.participant, {o.hour: o.quantity})
+        commit(o.participant, {h: o.quantity for h in o.mtus})
         rep.accepted_hourly.append(o)
 
     block_ids = {b.id for b in market.blocks}

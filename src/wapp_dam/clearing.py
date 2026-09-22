@@ -98,9 +98,10 @@ class ClearingResult:
         pos: dict[tuple[str, int], list[float]] = {}
         for o in self.validation.accepted_hourly:
             mw = o.side * self.hourly_mw[o.id]
-            p = pos.setdefault((o.participant, o.hour), [0.0, 0.0])
-            p[0] += mw
-            p[1] += mw * self.prices[(o.zone, o.hour)]
+            for h in o.mtus:
+                p = pos.setdefault((o.participant, h), [0.0, 0.0])
+                p[0] += mw
+                p[1] += mw * self.prices[(o.zone, h)]
         for br in self.blocks:
             for h, q in br.mw.items():
                 mw = br.side * q
@@ -113,7 +114,8 @@ class ClearingResult:
         """Surplus des ordres de chaque zone aux prix de clearing (hors rentes de congestion)."""
         w: dict[str, float] = {}
         for o in self.validation.accepted_hourly:
-            w[o.zone] = w.get(o.zone, 0.0) + o.side * (o.price - self.prices[(o.zone, o.hour)]) * self.hourly_mw[o.id]
+            for h in o.mtus:
+                w[o.zone] = w.get(o.zone, 0.0) + o.side * (o.price - self.prices[(o.zone, h)]) * self.hourly_mw[o.id]
         for br in self.blocks:
             for h, q in br.mw.items():
                 w[br.zone] = w.get(br.zone, 0.0) + br.side * (br.price - self.prices[(br.zone, h)]) * q
@@ -124,7 +126,7 @@ class ClearingResult:
 
     def accepted_volume(self, zone: str, hour: int, side: int) -> float:
         v = sum(self.hourly_mw[o.id] for o in self.validation.accepted_hourly
-                if o.zone == zone and o.hour == hour and o.side == side)
+                if o.zone == zone and hour in o.mtus and o.side == side)
         v += sum(br.mw.get(hour, 0.0) for br in self.blocks if br.zone == zone and br.side == side)
         return v
 
@@ -133,14 +135,15 @@ class ClearingResult:
         out: dict[tuple[str, int], float] = {}
         for o in self.validation.accepted_hourly:
             if o.side == BUY and o.price >= price_max - 1e-9:
-                out[(o.zone, o.hour)] = out.get((o.zone, o.hour), 0.0) + o.quantity - self.hourly_mw[o.id]
+                for h in o.mtus:
+                    out[(o.zone, h)] = out.get((o.zone, h), 0.0) + o.quantity - self.hourly_mw[o.id]
         return {k: v for k, v in out.items() if v > 1e-6}
 
     def hhi(self, zone: str, hour: int, side: int = SELL) -> float | None:
         """Indice de Herfindahl-Hirschman des volumes acceptés (base MC 21/22), None si volume nul."""
         shares: dict[str, float] = {}
         for o in self.validation.accepted_hourly:
-            if o.zone == zone and o.hour == hour and o.side == side:
+            if o.zone == zone and hour in o.mtus and o.side == side:
                 shares[o.participant] = shares.get(o.participant, 0.0) + self.hourly_mw[o.id]
         for br in self.blocks:
             if br.zone == zone and br.side == side and hour in br.mw:
@@ -190,7 +193,7 @@ def _prorata_hourly(d: MilpData, x: np.ndarray, raw: dict, tol: float) -> int:
     idx = d.idx
     groups: dict[tuple, list[int]] = {}
     for i, o in enumerate(idx.hourly):
-        groups.setdefault((o.zone, o.hour, o.side, o.price), []).append(i)
+        groups.setdefault((o.zone, o.mtus, o.side, o.price), []).append(i)
     n = 0
     for (z, h, side, price), ids in groups.items():
         if len(ids) < 2:
@@ -264,7 +267,7 @@ def _coherence(d: MilpData, x: np.ndarray, raw: dict, viol: dict, p) -> Coherenc
     checks.append(CoherenceCheck("intégralité des blocs", float(g), "", ""))
     g, worst = 0.0, ""
     for i, o in enumerate(idx.hourly):
-        pi, xi = raw[(o.zone, o.hour)], x[idx.col_x(i)]
+        pi, xi = sum(raw[(o.zone, h)] for h in o.mtus) / o.n_mtu, x[idx.col_x(i)]
         gap = 0.0
         if xi > p.tolerance:                       # accepté : ne doit pas être hors de la monnaie
             gap = max(gap, o.side * (pi - o.price))
@@ -318,7 +321,7 @@ def clear(market: Market) -> ClearingResult:
         x = np.array(res_lp.x, dtype=float)
         duals = np.asarray(res_lp.eqlin.marginals)
         hint = {zh: float(duals[r]) for zh, r in idx.balance_index.items()}
-        raw, viol = determine_prices(d, x, hint, tol, p.linked_family_rule)
+        raw, viol = determine_prices(d, x, hint, tol, p.linked_family_rule, p.price_rule, (p.price_min, p.price_max))
         journal.append(f"itération {it} : objectif {-res_milp.fun:.2f} USD, blocs forcés au rejet {sorted(forced)}")
         violated = [bid for bid, v in viol.items() if v > 1e-4]
         if not violated:

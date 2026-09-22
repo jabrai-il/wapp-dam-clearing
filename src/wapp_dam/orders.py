@@ -23,6 +23,17 @@ class HourlyOrder:
     price: float         # USD/MWh
     cross_border: bool = False  # intention d'import/export déclarée (contrôle MC 13.1.4.5)
     timestamp: Optional[str] = None  # horodatage de dernière modification (départage, EPD-2025 §5.4.4)
+    hours: Optional[tuple[int, ...]] = None  # MTU couverts si l'ordre porte sur plusieurs MTU (ex. ordre 60 min sur
+                                             # un marché au quart d'heure) : un seul ratio, dans la monnaie sur la
+                                             # moyenne arithmétique des prix des MTU (EPD-2025 §5.1). None = (hour,).
+
+    @property
+    def mtus(self) -> tuple[int, ...]:
+        return tuple(self.hours) if self.hours else (self.hour,)
+
+    @property
+    def n_mtu(self) -> int:
+        return len(self.mtus)
 
 
 @dataclass(frozen=True)
@@ -78,6 +89,9 @@ class MarketParams:
     prorata_ties: bool = True        # départage au prorata des ordres horaires à la monnaie (partage du délestage)
     linked_family_rule: bool = True  # règles de famille des blocs liés (EPD-2025 §5.4.1) ; sinon cohérence bloc par bloc
     force_one_at_a_time: bool = True # itération de cohérence : un seul bloc forcé au rejet par itération (le plus incohérent)
+    price_rule: str = "dual"         # levée de l'indétermination des prix : "dual" (au plus près du dual du solveur)
+                                     # ou "midpoint" (au plus près du milieu de l'intervalle admissible de chaque
+                                     # (zone, MTU), au sens des moindres carrés, EPD-2025 annexe C)
     tol_technical: float = 1e-3      # niveaux du rapport de cohérence (EPD-2025 §8.2)
     tol_decoupling: float = 1e-1
 
