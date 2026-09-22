@@ -6,13 +6,14 @@ import hashlib
 import logging
 from dataclasses import dataclass, field
 from decimal import ROUND_HALF_UP, Decimal
+from typing import Optional
 
 import numpy as np
-from scipy.optimize import Bounds, LinearConstraint, linprog, milp
 
 from .model import MilpData, build
 from .orders import BUY, SELL, BlockOrder, HourlyOrder, Market
-from .prices import accepted_subtree, determine_prices
+from .prices import PriceDeterminer, accepted_subtree
+from .solvers import DEFAULT_SOLVER, LpSolution, Solver
 from .validation import ValidationReport, validate
 
 log = logging.getLogger("wapp_dam")
@@ -154,241 +155,257 @@ class ClearingResult:
         return float(sum((s / tot * 100) ** 2 for s in shares.values()))
 
 
-# ---------------------------------------------------------------- solveurs
-
-def _solve_milp(d: MilpData, time_limit: float | None):
-    cons = [LinearConstraint(d.A_eq, d.b_eq, d.b_eq)]
-    if d.A_ub.shape[0] > 0:
-        cons.append(LinearConstraint(d.A_ub, -np.inf, d.b_ub))
-    opts = {} if time_limit is None else {"time_limit": time_limit}
-    res = milp(d.c, constraints=cons, integrality=d.integrality, bounds=Bounds(d.lb, d.ub), options=opts)
-    if res.status != 0 or res.x is None:
-        raise RuntimeError(f"MILP non résolu : {res.message}")
-    return res
-
-
-def _solve_lp_fixed(d: MilpData, x_milp: np.ndarray):
-    """Blocs figés à leur valeur optimale : LP restant, duals des équilibres comme point de référence."""
-    idx = d.idx
-    lb, ub = d.lb.copy(), d.ub.copy()
-    for j in range(idx.n_r):
-        for col in (idx.col_r(j), idx.col_u(j)):
-            v = float(np.clip(round(x_milp[col], 9), lb[col], ub[col]))
-            lb[col] = ub[col] = v
-    A_ub = d.A_ub if d.A_ub.shape[0] > 0 else None
-    b_ub = d.b_ub if d.A_ub.shape[0] > 0 else None
-    res = linprog(d.c, A_ub=A_ub, b_ub=b_ub, A_eq=d.A_eq, b_eq=d.b_eq,
-                  bounds=list(zip(lb, ub)), method="highs")
-    if res.status != 0:
-        raise RuntimeError(f"LP dual non résolu : {res.message}")
-    return res
-
-
-# ---------------------------------------------------------------- départage
-
-def _prorata_hourly(d: MilpData, x: np.ndarray, raw: dict, tol: float) -> int:
-    """Ordres horaires de même zone, heure, sens et prix, à la monnaie : volume accepté redistribué au prorata
-    des quantités (partage du délestage entre preneurs de prix, EPD-2025 §7.9.2 ; règle de départage spec §4.5).
-    Neutre pour l'équilibre et le bien-être. Retourne le nombre de groupes modifiés."""
-    idx = d.idx
-    groups: dict[tuple, list[int]] = {}
-    for i, o in enumerate(idx.hourly):
-        groups.setdefault((o.zone, o.mtus, o.side, o.price), []).append(i)
-    n = 0
-    for (z, h, side, price), ids in groups.items():
-        if len(ids) < 2:
-            continue
-        ratios = [x[idx.col_x(i)] for i in ids]
-        if max(ratios) - min(ratios) <= tol:
-            continue
-        tot_q = sum(idx.hourly[i].quantity for i in ids)
-        if tot_q <= 0:
-            continue
-        acc = sum(idx.hourly[i].quantity * x[idx.col_x(i)] for i in ids)
-        for i in ids:
-            x[idx.col_x(i)] = acc / tot_q
-        n += 1
-    return n
-
+# ---------------------------------------------------------------- algorithme
 
 def _block_key(b: BlockOrder) -> tuple:
     return (b.zone, b.side, b.price, b.mar, tuple(sorted(b.profile.items())), b.exclusive_group)
 
 
-def _tiebreak_blocks(d: MilpData, x: np.ndarray, tol: float) -> int:
-    """Blocs identiques (EPD-2025 §5.4.4 : même zone, MAR, prix, sens, profil, groupe exclusif, sans liens) :
-    les ratios sont réattribués par horodatage croissant puis hachage reproductible des paramètres."""
-    idx = d.idx
-    has_child = {b.parent for b in idx.blocks if b.parent is not None}
-    groups: dict[tuple, list[int]] = {}
-    for j, b in enumerate(idx.blocks):
-        if b.parent is None and b.id not in has_child:
-            groups.setdefault(_block_key(b), []).append(j)
-    n = 0
-    for ids in groups.values():
-        if len(ids) < 2:
-            continue
-        ratios = sorted((float(x[idx.col_r(j)]) for j in ids), reverse=True)
-        if ratios[0] - ratios[-1] <= tol:
-            continue
-        def prio(j: int):
-            b = idx.blocks[j]
-            h = hashlib.sha256(repr((_block_key(b), b.participant, b.id)).encode()).hexdigest()
-            return (b.timestamp or "9999", h)
-        for j, r in zip(sorted(ids, key=prio), ratios):
-            x[idx.col_r(j)] = r
-            x[idx.col_u(j)] = 1.0 if r > tol else 0.0
-        n += 1
-    return n
+class Clearing:
+    """Clearing d'une journée de marché : validation, itération MILP / prix / cohérence des blocs, départage,
+    rapport de cohérence, écrêtage et arrondi. `run()` renvoie le `ClearingResult`.
 
+    L'état de l'itération courante (données du MILP `d`, solution `x`, prix bruts `raw`, violations `viol`) est
+    porté par l'instance ; les étapes sont des méthodes qui le lisent ou le modifient en place.
+    """
 
-# ---------------------------------------------------------------- rapport de cohérence
+    def __init__(self, market: Market, solver: Optional[Solver] = None):
+        self.market = market
+        self.p = market.params
+        self.tol = market.params.tolerance
+        self.solver = solver or DEFAULT_SOLVER
+        self.journal: list[str] = []
+        self.forced: set[str] = set()
+        self.d: MilpData
+        self.x: np.ndarray
+        self.raw: dict[tuple[str, int], float] = {}
+        self.viol: dict[str, float] = {}
+        self.welfare: float = 0.0
+        self.welfare_first: float | None = None
+        self.iterations: int = 0
 
-def _level(gap: float, p) -> str:
-    if gap <= p.tol_technical:
-        return LEVEL_OK
-    if gap <= p.tol_decoupling:
-        return LEVEL_TECH
-    return LEVEL_DECOUPLING
+    # ------------------------------------------------------------ étapes
 
+    def _solve_lp_fixed(self, x_milp: np.ndarray) -> LpSolution:
+        """Blocs figés à leur valeur optimale : LP restant, duals des équilibres comme point de référence."""
+        d, idx = self.d, self.d.idx
+        lb, ub = d.lb.copy(), d.ub.copy()
+        for j in range(idx.n_r):
+            for col in (idx.col_r(j), idx.col_u(j)):
+                v = float(np.clip(round(x_milp[col], 9), lb[col], ub[col]))
+                lb[col] = ub[col] = v
+        A_ub = d.A_ub if d.A_ub.shape[0] > 0 else None
+        b_ub = d.b_ub if d.A_ub.shape[0] > 0 else None
+        try:
+            return self.solver.solve_lp(d.c, A_ub, b_ub, d.A_eq, d.b_eq, list(zip(lb, ub)))
+        except RuntimeError as e:
+            raise RuntimeError(f"LP dual non résolu : {e}") from e
 
-def _coherence(d: MilpData, x: np.ndarray, raw: dict, viol: dict, p) -> CoherenceReport:
-    idx = d.idx
-    checks: list[CoherenceCheck] = []
-    bal = d.A_eq @ x - d.b_eq
-    checks.append(CoherenceCheck("équilibre zonal (MW)", float(np.max(np.abs(bal))) if bal.size else 0.0, "", ""))
-    g = 0.0
-    if d.A_ub.shape[0]:
-        g = float(np.max(np.maximum(d.A_ub @ x - d.b_ub, 0.0)))
-    checks.append(CoherenceCheck("contraintes MAR / liens / groupes exclusifs", g, "", ""))
-    g = float(np.max(np.maximum(np.maximum(d.lb - x, x - d.ub), 0.0)))
-    checks.append(CoherenceCheck("bornes (ATC, ratios)", g, "", ""))
-    g = max((abs(x[idx.col_u(j)] - round(x[idx.col_u(j)])) for j in range(idx.n_u)), default=0.0)
-    checks.append(CoherenceCheck("intégralité des blocs", float(g), "", ""))
-    g, worst = 0.0, ""
-    for i, o in enumerate(idx.hourly):
-        pi, xi = sum(raw[(o.zone, h)] for h in o.mtus) / o.n_mtu, x[idx.col_x(i)]
-        gap = 0.0
-        if xi > p.tolerance:                       # accepté : ne doit pas être hors de la monnaie
-            gap = max(gap, o.side * (pi - o.price))
-        if xi < 1 - p.tolerance:                   # pas totalement accepté : ne doit pas être dans la monnaie
-            gap = max(gap, o.side * (o.price - pi))
-        if gap > g:
-            g, worst = gap, o.id
-    checks.append(CoherenceCheck("ordres horaires paradoxaux (USD/MWh)", float(g), "", worst))
-    g, worst = 0.0, ""
-    for l in idx.links:
-        for h in idx.hours:
-            f, a = x[idx.col_f(l.id, h)], float(l.atc.get(h, 0.0))
-            if a <= p.tolerance:
+    def _iterate(self, hourly: list[HourlyOrder], blocks: list[BlockOrder]) -> None:
+        """Boucle de fixation des blocs incohérents (spec §4.6) : à chaque tour, MILP, LP à blocs figés, prix ;
+        les blocs acceptés hors de la monnaie (au sens de leur famille) sont forcés au rejet et l'on recommence."""
+        p = self.p
+        for it in range(1, p.block_fix_max_iter + 1):
+            self.iterations = it
+            self.d = build(self.market, hourly, blocks, frozenset(self.forced))
+            idx = self.d.idx
+            res_milp = self.solver.solve_milp(self.d, p.time_limit_s)
+            self.welfare = -res_milp.objective
+            if self.welfare_first is None:
+                self.welfare_first = self.welfare
+            res_lp = self._solve_lp_fixed(res_milp.x)
+            self.x = res_lp.x
+            hint = {zh: float(res_lp.duals_eq[r]) for zh, r in idx.balance_index.items()}
+            pd = PriceDeterminer(self.d, self.x, p, self.solver)
+            self.raw, self.viol = pd.run(hint)
+            if pd.refine_failed:
+                self.journal.append(f"itération {it} : affinage quadratique non résolu, prix de la passe L1 conservés")
+            self.journal.append(f"itération {it} : objectif {self.welfare:.2f} USD, blocs forcés au rejet {sorted(self.forced)}")
+            violated = [bid for bid, v in self.viol.items() if v > 1e-4]
+            if not violated:
+                return
+            if p.force_one_at_a_time:
+                # Rejeter d'abord le bloc le plus incohérent seulement : les autres peuvent redevenir cohérents
+                # une fois celui-ci écarté (moins de perte de bien-être qu'un rejet groupé).
+                violated = [max(violated, key=lambda b: self.viol[b])]
+            self.forced |= set(violated)
+            self.journal.append(f"itération {it} : blocs acceptés incohérents -> rejet forcé {violated}")
+        self.journal.append("nombre maximal d'itérations atteint ; résultat retourné avec blocs éventuellement incohérents")
+
+    def _prorata_hourly(self) -> int:
+        """Ordres horaires de même zone, heure, sens et prix, à la monnaie : volume accepté redistribué au prorata
+        des quantités (partage du délestage entre preneurs de prix, EPD-2025 §7.9.2 ; règle de départage spec §4.5).
+        Neutre pour l'équilibre et le bien-être. Retourne le nombre de groupes modifiés."""
+        idx, x, tol = self.d.idx, self.x, self.tol
+        groups: dict[tuple, list[int]] = {}
+        for i, o in enumerate(idx.hourly):
+            groups.setdefault((o.zone, o.mtus, o.side, o.price), []).append(i)
+        n = 0
+        for ids in groups.values():
+            if len(ids) < 2:
                 continue
-            pf, pt = raw[(l.from_zone, h)], raw[(l.to_zone, h)]
-            gap = 0.0
-            if f > p.tolerance:
-                gap = max(gap, pf - (1 - l.loss_factor) * pt)
-            if f < a - p.tolerance:
-                gap = max(gap, (1 - l.loss_factor) * pt - pf)
-            if gap > g:
-                g, worst = gap, f"{l.id} h{h}"
-    checks.append(CoherenceCheck("écart de prix sans congestion (USD/MWh)", float(g), "", worst))
-    g = max(viol.values(), default=0.0)
-    checks.append(CoherenceCheck("blocs acceptés hors de la monnaie (USD/MWh)", float(g), "",
-                                 max(viol, key=viol.get) if viol else ""))
-    for c in checks:
-        c.level = _level(c.gap, p)
-    return CoherenceReport(checks)
+            ratios = [x[idx.col_x(i)] for i in ids]
+            if max(ratios) - min(ratios) <= tol:
+                continue
+            tot_q = sum(idx.hourly[i].quantity for i in ids)
+            if tot_q <= 0:
+                continue
+            acc = sum(idx.hourly[i].quantity * x[idx.col_x(i)] for i in ids)
+            for i in ids:
+                x[idx.col_x(i)] = acc / tot_q
+            n += 1
+        return n
 
+    def _tiebreak_blocks(self) -> int:
+        """Blocs identiques (EPD-2025 §5.4.4 : même zone, MAR, prix, sens, profil, groupe exclusif, sans liens) :
+        les ratios sont réattribués par horodatage croissant puis hachage reproductible des paramètres."""
+        idx, x, tol = self.d.idx, self.x, self.tol
+        has_child = {b.parent for b in idx.blocks if b.parent is not None}
+        groups: dict[tuple, list[int]] = {}
+        for j, b in enumerate(idx.blocks):
+            if b.parent is None and b.id not in has_child:
+                groups.setdefault(_block_key(b), []).append(j)
+        n = 0
+        for ids in groups.values():
+            if len(ids) < 2:
+                continue
+            ratios = sorted((float(x[idx.col_r(j)]) for j in ids), reverse=True)
+            if ratios[0] - ratios[-1] <= tol:
+                continue
+            def prio(j: int):
+                b = idx.blocks[j]
+                h = hashlib.sha256(repr((_block_key(b), b.participant, b.id)).encode()).hexdigest()
+                return (b.timestamp or "9999", h)
+            for j, r in zip(sorted(ids, key=prio), ratios):
+                x[idx.col_r(j)] = r
+                x[idx.col_u(j)] = 1.0 if r > tol else 0.0
+            n += 1
+        return n
 
-# ---------------------------------------------------------------- clearing
-
-def clear(market: Market) -> ClearingResult:
-    """Exécute le clearing d'une journée de marché (validation, MILP, prix, cohérence, départage, arrondi)."""
-    p = market.params
-    rep = validate(market)
-    hourly, blocks = rep.accepted_hourly, rep.accepted_blocks
-    forced: set[str] = set()
-    journal: list[str] = []
-    tol = p.tolerance
-    welfare_first: float | None = None
-
-    for it in range(1, p.block_fix_max_iter + 1):
-        d = build(market, hourly, blocks, frozenset(forced))
-        idx = d.idx
-        res_milp = _solve_milp(d, p.time_limit_s)
-        if welfare_first is None:
-            welfare_first = float(-res_milp.fun)
-        res_lp = _solve_lp_fixed(d, res_milp.x)
-        x = np.array(res_lp.x, dtype=float)
-        duals = np.asarray(res_lp.eqlin.marginals)
-        hint = {zh: float(duals[r]) for zh, r in idx.balance_index.items()}
-        raw, viol = determine_prices(d, x, hint, tol, p.linked_family_rule, p.price_rule, (p.price_min, p.price_max))
-        journal.append(f"itération {it} : objectif {-res_milp.fun:.2f} USD, blocs forcés au rejet {sorted(forced)}")
-        violated = [bid for bid, v in viol.items() if v > 1e-4]
-        if not violated:
-            break
-        if p.force_one_at_a_time:
-            # Rejeter d'abord le bloc le plus incohérent seulement : les autres peuvent redevenir cohérents
-            # une fois celui-ci écarté (moins de perte de bien-être qu'un rejet groupé).
-            violated = [max(violated, key=lambda b: viol[b])]
-        forced |= set(violated)
-        journal.append(f"itération {it} : blocs acceptés incohérents -> rejet forcé {violated}")
-    else:
-        journal.append("nombre maximal d'itérations atteint ; résultat retourné avec blocs éventuellement incohérents")
-        it = p.block_fix_max_iter
-
-    # Départage (neutre pour le bien-être et l'équilibre)
-    if p.prorata_ties:
-        n = _prorata_hourly(d, x, raw, tol)
+    def _tiebreak(self) -> None:
+        """Départage (neutre pour le bien-être et l'équilibre)."""
+        if self.p.prorata_ties:
+            n = self._prorata_hourly()
+            if n:
+                self.journal.append(f"départage : {n} groupe(s) d'ordres horaires à la monnaie redistribués au prorata")
+        n = self._tiebreak_blocks()
         if n:
-            journal.append(f"départage : {n} groupe(s) d'ordres horaires à la monnaie redistribués au prorata")
-    n = _tiebreak_blocks(d, x, tol)
-    if n:
-        journal.append(f"départage : {n} groupe(s) de blocs identiques réattribués par horodatage puis hachage")
+            self.journal.append(f"départage : {n} groupe(s) de blocs identiques réattribués par horodatage puis hachage")
 
-    coherence = _coherence(d, x, raw, viol, p)
+    def _level(self, gap: float) -> str:
+        if gap <= self.p.tol_technical:
+            return LEVEL_OK
+        if gap <= self.p.tol_decoupling:
+            return LEVEL_TECH
+        return LEVEL_DECOUPLING
 
-    # Écrêtage (MC 15.3.5) et arrondi half-up (MC 13.1.3.2, EPD-2025 §8.1)
-    prices, clipped = {}, set()
-    for zh, v in raw.items():
-        c = min(max(v, p.price_min), p.price_max)
-        if abs(c - v) > 1e-9:
-            clipped.add(zh)
-        prices[zh] = round_half_up(c, p.price_decimals)
+    def _coherence(self) -> CoherenceReport:
+        """Rapport de cohérence (EPD-2025 §8.2) : écarts numériques et paradoxes, avec leur niveau."""
+        d, idx, x, raw, viol, p = self.d, self.d.idx, self.x, self.raw, self.viol, self.p
+        checks: list[CoherenceCheck] = []
+        bal = d.A_eq @ x - d.b_eq
+        checks.append(CoherenceCheck("équilibre zonal (MW)", float(np.max(np.abs(bal))) if bal.size else 0.0, "", ""))
+        g = 0.0
+        if d.A_ub.shape[0]:
+            g = float(np.max(np.maximum(d.A_ub @ x - d.b_ub, 0.0)))
+        checks.append(CoherenceCheck("contraintes MAR / liens / groupes exclusifs", g, "", ""))
+        g = float(np.max(np.maximum(np.maximum(d.lb - x, x - d.ub), 0.0)))
+        checks.append(CoherenceCheck("bornes (ATC, ratios)", g, "", ""))
+        g = max((abs(x[idx.col_u(j)] - round(x[idx.col_u(j)])) for j in range(idx.n_u)), default=0.0)
+        checks.append(CoherenceCheck("intégralité des blocs", float(g), "", ""))
+        g, worst = 0.0, ""
+        for i, o in enumerate(idx.hourly):
+            pi, xi = sum(raw[(o.zone, h)] for h in o.mtus) / o.n_mtu, x[idx.col_x(i)]
+            gap = 0.0
+            if xi > p.tolerance:                       # accepté : ne doit pas être hors de la monnaie
+                gap = max(gap, o.side * (pi - o.price))
+            if xi < 1 - p.tolerance:                   # pas totalement accepté : ne doit pas être dans la monnaie
+                gap = max(gap, o.side * (o.price - pi))
+            if gap > g:
+                g, worst = gap, o.id
+        checks.append(CoherenceCheck("ordres horaires paradoxaux (USD/MWh)", float(g), "", worst))
+        g, worst = 0.0, ""
+        for l in idx.links:
+            for h in idx.hours:
+                f, a = x[idx.col_f(l.id, h)], float(l.atc.get(h, 0.0))
+                if a <= p.tolerance:
+                    continue
+                pf, pt = raw[(l.from_zone, h)], raw[(l.to_zone, h)]
+                gap = 0.0
+                if f > p.tolerance:
+                    gap = max(gap, pf - (1 - l.loss_factor) * pt)
+                if f < a - p.tolerance:
+                    gap = max(gap, (1 - l.loss_factor) * pt - pf)
+                if gap > g:
+                    g, worst = gap, f"{l.id} h{h}"
+        checks.append(CoherenceCheck("écart de prix sans congestion (USD/MWh)", float(g), "", worst))
+        g = max(viol.values(), default=0.0)
+        checks.append(CoherenceCheck("blocs acceptés hors de la monnaie (USD/MWh)", float(g), "",
+                                     max(viol, key=viol.get) if viol else ""))
+        for c in checks:
+            c.level = self._level(c.gap)
+        return CoherenceReport(checks)
 
-    def pub(v: float) -> float:
-        return round_half_up(v, 0) if p.round_volumes else v
+    def _publish(self, rep: ValidationReport, hourly: list[HourlyOrder], blocks: list[BlockOrder],
+                 coherence: CoherenceReport) -> ClearingResult:
+        """Écrêtage (MC 15.3.5), arrondi half-up (MC 13.1.3.2, EPD-2025 §8.1) et mise en forme des résultats."""
+        p, idx, x, raw, tol = self.p, self.d.idx, self.x, self.raw, self.tol
+        prices, clipped = {}, set()
+        for zh, v in raw.items():
+            c = min(max(v, p.price_min), p.price_max)
+            if abs(c - v) > 1e-9:
+                clipped.add(zh)
+            prices[zh] = round_half_up(c, p.price_decimals)
 
-    hourly_ratio = {o.id: float(np.clip(x[idx.col_x(i)], 0.0, 1.0)) for i, o in enumerate(hourly)}
-    hourly_mw = {o.id: pub(o.quantity * hourly_ratio[o.id]) for o in hourly}
+        def pub(v: float) -> float:
+            return round_half_up(v, 0) if p.round_volumes else v
 
-    block_results: list[BlockResult] = []
-    for j, b in enumerate(blocks):
-        r = float(x[idx.col_r(j)])
-        wp = sum(prices[(b.zone, h)] * q for h, q in b.profile.items()) / b.volume if b.volume > 0 else None
-        fam = None
-        if r > tol:
-            status = BLOCK_ACCEPTED
-            fam = 0.0
-            for k in accepted_subtree(idx, x, j, tol) if p.linked_family_rule else [j]:
-                bk, rk = blocks[k], float(x[idx.col_r(k)])
-                fam += bk.side * rk * (bk.price * bk.volume - sum(raw[(bk.zone, h)] * q for h, q in bk.profile.items()))
-        elif b.id in forced:
-            status = BLOCK_FORCED
-        else:
-            in_money = wp is not None and ((b.side == SELL and wp >= b.price - 1e-9) or (b.side == BUY and wp <= b.price + 1e-9))
-            status = BLOCK_PARADOX if in_money else BLOCK_REJECTED
-        mw = {h: pub(q * r) for h, q in b.profile.items()} if r > tol else {h: 0.0 for h in b.profile}
-        rp = sum(mw.values()) / b.volume if b.volume > 0 else 0.0
-        block_results.append(BlockResult(b.id, b.participant, b.zone, b.side, b.price, r if r > tol else 0.0,
-                                         status, wp, mw, rp, fam))
+        hourly_ratio = {o.id: float(np.clip(x[idx.col_x(i)], 0.0, 1.0)) for i, o in enumerate(hourly)}
+        hourly_mw = {o.id: pub(o.quantity * hourly_ratio[o.id]) for o in hourly}
 
-    link_results: list[LinkHourResult] = []
-    for l in market.links:
-        for h in idx.hours:
-            f = float(x[idx.col_f(l.id, h)])
-            a = float(l.atc.get(h, 0.0))
-            rent = (prices[(l.to_zone, h)] * (1.0 - l.loss_factor) - prices[(l.from_zone, h)]) * f
-            link_results.append(LinkHourResult(l.id, l.from_zone, l.to_zone, h, pub(f), a, f >= a - 1e-6 and a > 0, rent))
+        block_results: list[BlockResult] = []
+        for j, b in enumerate(blocks):
+            r = float(x[idx.col_r(j)])
+            wp = sum(prices[(b.zone, h)] * q for h, q in b.profile.items()) / b.volume if b.volume > 0 else None
+            fam = None
+            if r > tol:
+                status = BLOCK_ACCEPTED
+                fam = 0.0
+                for k in accepted_subtree(idx, x, j, tol) if p.linked_family_rule else [j]:
+                    bk, rk = blocks[k], float(x[idx.col_r(k)])
+                    fam += bk.side * rk * (bk.price * bk.volume - sum(raw[(bk.zone, h)] * q for h, q in bk.profile.items()))
+            elif b.id in self.forced:
+                status = BLOCK_FORCED
+            else:
+                in_money = wp is not None and ((b.side == SELL and wp >= b.price - 1e-9) or (b.side == BUY and wp <= b.price + 1e-9))
+                status = BLOCK_PARADOX if in_money else BLOCK_REJECTED
+            mw = {h: pub(q * r) for h, q in b.profile.items()} if r > tol else {h: 0.0 for h in b.profile}
+            rp = sum(mw.values()) / b.volume if b.volume > 0 else 0.0
+            block_results.append(BlockResult(b.id, b.participant, b.zone, b.side, b.price, r if r > tol else 0.0,
+                                             status, wp, mw, rp, fam))
 
-    return ClearingResult(rep, prices, raw, clipped, hourly_ratio, hourly_mw, block_results, link_results,
-                          float(-res_milp.fun), welfare_first, it, coherence, journal)
+        link_results: list[LinkHourResult] = []
+        for l in self.market.links:
+            for h in idx.hours:
+                f = float(x[idx.col_f(l.id, h)])
+                a = float(l.atc.get(h, 0.0))
+                rent = (prices[(l.to_zone, h)] * (1.0 - l.loss_factor) - prices[(l.from_zone, h)]) * f
+                link_results.append(LinkHourResult(l.id, l.from_zone, l.to_zone, h, pub(f), a, f >= a - 1e-6 and a > 0, rent))
+
+        return ClearingResult(rep, prices, raw, clipped, hourly_ratio, hourly_mw, block_results, link_results,
+                              self.welfare, self.welfare_first, self.iterations, coherence, self.journal)
+
+    # ------------------------------------------------------------ pipeline
+
+    def run(self) -> ClearingResult:
+        rep = validate(self.market)
+        hourly, blocks = rep.accepted_hourly, rep.accepted_blocks
+        self._iterate(hourly, blocks)
+        self._tiebreak()
+        coherence = self._coherence()
+        return self._publish(rep, hourly, blocks, coherence)
+
+
+def clear(market: Market, solver: Optional[Solver] = None) -> ClearingResult:
+    """Exécute le clearing d'une journée de marché (validation, MILP, prix, cohérence, départage, arrondi)."""
+    return Clearing(market, solver).run()

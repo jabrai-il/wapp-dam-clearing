@@ -14,10 +14,13 @@ from .orders import (
     Participant,
 )
 from .validation import ValidationReport, validate
-from .clearing import ClearingResult, clear
+from .clearing import Clearing, ClearingResult, clear
+from .prices import PriceDeterminer, determine_prices
+from .solvers import HighsSolver, Solver
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 __all__ = [
     "BUY", "SELL", "BlockOrder", "HourlyOrder", "Link", "Market", "MarketParams",
-    "Participant", "ValidationReport", "validate", "ClearingResult", "clear",
+    "Participant", "ValidationReport", "validate", "ClearingResult", "clear", "Clearing",
+    "PriceDeterminer", "determine_prices", "Solver", "HighsSolver",
 ]
