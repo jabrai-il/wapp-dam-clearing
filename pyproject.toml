@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wapp-dam-clearing"
+version = "0.2.0"
+description = "Moteur de clearing day-ahead conforme au REMC-WA (marché régional CEDEAO / WAPP) : MILP, prix zonaux duaux, ordres en bloc, allocation implicite des ATC."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+authors = [{ name = "Djiby Seck", email = "admin@jabra-il.com" }]
+keywords = ["electricity market", "day-ahead", "market coupling", "WAPP", "ECOWAS", "REMC-WA", "Euphemia", "MILP"]
+dependencies = ["numpy>=1.24", "scipy>=1.11"]
+
+[project.optional-dependencies]
+dev = ["pytest>=7", "pytest-cov"]
+
+[project.scripts]
+wapp-dam = "wapp_dam.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/jabrai-il/wapp-dam-clearing"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
