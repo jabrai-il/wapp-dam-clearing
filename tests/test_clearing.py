@@ -277,3 +277,32 @@ def test_multi_mtu_order_cleared_on_mean_price():
     assert 130 - 1e-6 <= r.prices[("Z", 2)] <= 140 + 1e-6
     assert r.coherence.level == "OK"
     assert r.welfare == pytest.approx(100 * 200 + 100 * 200 - 60 * 50 - 60 * 50 - 2 * 40 * 90)
+
+
+def test_custom_solver_through_protocol(two_zone_market):
+    """Le moteur ne dépend du solveur qu'à travers le protocole `Solver` : un solveur enveloppant, qui compte
+    les appels et délègue à HiGHS, donne le même résultat et est bien sollicité pour le MILP et les LP."""
+    from wapp_dam import HighsSolver
+
+    class CountingSolver(HighsSolver):
+        def __init__(self):
+            self.calls = {"milp": 0, "lp": 0, "projection": 0}
+
+        def solve_milp(self, d, time_limit=None):
+            self.calls["milp"] += 1
+            return super().solve_milp(d, time_limit)
+
+        def solve_lp(self, *a, **k):
+            self.calls["lp"] += 1
+            return super().solve_lp(*a, **k)
+
+        def solve_projection(self, *a, **k):
+            self.calls["projection"] += 1
+            return super().solve_projection(*a, **k)
+
+    s = CountingSolver()
+    r_ref, r = clear(two_zone_market(atc=30)), clear(two_zone_market(atc=30), solver=s)
+    assert r.prices == r_ref.prices and r.hourly_ratio == r_ref.hourly_ratio
+    assert s.calls["milp"] == r.iterations
+    assert s.calls["lp"] == 2 * r.iterations          # LP à blocs figés + LP de prix par itération
+    assert s.calls["projection"] == 0                 # règle « dual » : pas d'affinage quadratique
