@@ -269,7 +269,7 @@ L'étape 3 mérite un commentaire. À blocs figés, une heure où seul un bloc f
 
 Choisir les prix dans $\Pi$ en minimisant l'incohérence rend le résultat indépendant de ce hasard numérique. Pour la reproductibilité des résultats, c'est une exigence, pas un raffinement. Reste, à l'intérieur de $\Pi$, le choix du point : le Code ne dit rien, l'enchère européenne prend le milieu de l'intervalle, et un SMO qui retiendrait une autre règle (borne basse, borne haute, dual du solveur) publierait des prix différents pour la même allocation. C'est le quatrième paramètre de la section~\ref{sec:ouverts}.
 
-Le code (\url{https://github.com/jabrai-il/wapp-dam-clearing}, licence MIT, version 0.4.0 archivée sur Zenodo sous le DOI concept \href{https://doi.org/10.5281/zenodo.22902401}{10.5281/zenodo.22902401}) tient en sept modules Python (objets, validation, modèle, prix, clearing, entrées-sorties, ligne de commande) et n'a pour dépendances que NumPy et SciPy. L'instance de la section~\ref{sec:application} (4 zones, 526 ordres horaires, 42 blocs dont 8 familles liées et 7 groupes exclusifs, 6 liaisons orientées, 24 heures) se résout en moins de 0.1~s sur un ordinateur portable ; le passage à quinze zones et quelques milliers d'ordres reste linéaire en pratique tant que le nombre de blocs se compte en centaines, la difficulté combinatoire venant d'eux seuls.
+Le code (\url{https://github.com/jabrai-il/wapp-dam-clearing}, licence MIT, version 0.4.0 archivée sur Zenodo sous le DOI concept \href{https://doi.org/10.5281/zenodo.22902401}{10.5281/zenodo.22902401}) tient en huit modules Python (objets, validation, modèle, solveurs, prix, clearing, entrées-sorties, ligne de commande) et n'a pour dépendances que NumPy, SciPy et l'interface Python de HiGHS. Le solveur est isolé derrière un protocole à trois méthodes (MILP, LP avec duals, projection quadratique), de sorte qu'un solveur commercial peut être substitué sans modifier l'algorithme. L'instance de la section~\ref{sec:application} (4 zones, 526 ordres horaires, 42 blocs dont 8 familles liées et 7 groupes exclusifs, 6 liaisons orientées, 24 heures) se résout en moins de 0.1~s sur un ordinateur portable ; le passage à quinze zones et quelques milliers d'ordres reste linéaire en pratique tant que le nombre de blocs se compte en centaines, la difficulté combinatoire venant d'eux seuls.
 
 \section{Validation}\label{sec:validation}
 
@@ -376,9 +376,9 @@ Deux règles de l'enchère européenne, sans objet au pas horaire du Code, ont d
 \cmidrule(lr){4-6}\cmidrule(lr){7-8}
 Journée & ordres & blocs & \mc{prix\\exacts} & \mc{écart\\moyen} & \mc{écart\\max} & \mc{écart\\moyen (MW)} & \mc{arcs saturés\\reproduits} \\
 \midrule
-20 janv. 2026 & 289\,248 & 79 & 628 / 672 & 0.05 & 5.40 & 27.1 & 160 / 209 \\ \rowsep
+20 janv. 2026 & 289\,248 & 79 & 628 / 672 & 0.06 & 5.40 & 27.1 & 160 / 209 \\ \rowsep
 10 juin 2026 & 300\,110 & 128 & 619 / 672 & 0.03 & 0.65 & 5.9 & 110 / 120 \\ \rowsep
-15 sept. 2026 & 291\,551 & 173 & 589 / 672 & 0.13 & 15.25 & 1.3 & 128 / 131 \\
+15 sept. 2026 & 291\,551 & 173 & 589 / 672 & 0.15 & 15.25 & 1.3 & 128 / 131 \\
 \bottomrule
 \end{tabular}
 \caption{Rejeu de trois journées du marché italien, blocs fixés à leurs volumes acceptés (N2). « Ordres » : marches soumises au clearing après expansion des ordres 30 et 60~min ; « exacts » : couples (quart d'heure, zone italienne) où le prix du moteur égale le prix officiel à 0.01~EUR/MWh près ; « arcs saturés reproduits » : couples (quart d'heure, arc interne) saturés dans la publication et saturés par le moteur à 1~MW près.}

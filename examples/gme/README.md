@@ -56,9 +56,9 @@ attribué.
 
 | Journée | Ordres | Blocs | N2 : prix exacts | N2 : écart moyen / max (EUR/MWh) | N2 : transits internes, écart moyen (MW) | Arcs saturés reproduits |
 |---|---|---|---|---|---|---|
-| 2026-01-20 | 289 248 | 79 | 628 / 672 | 0,05 / 5,40 | 27,1 | 160 / 209 |
+| 2026-01-20 | 289 248 | 79 | 628 / 672 | 0,06 / 5,40 | 27,1 | 160 / 209 |
 | 2026-06-10 | 300 110 | 128 | 619 / 672 | 0,03 / 0,65 | 5,9 | 110 / 120 |
-| 2026-09-15 | 291 551 | 173 | 589 / 672 | 0,13 / 15,25 | 1,3 | 128 / 131 |
+| 2026-09-15 | 291 551 | 173 | 589 / 672 | 0,15 / 15,25 | 1,3 | 128 / 131 |
 
 N3 (blocs libres, journée entière, 9 à 11 s et trois itérations de cohérence par journée) :
 
