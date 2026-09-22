@@ -1,5 +1,7 @@
 # wapp-dam-clearing
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22902401.svg)](https://doi.org/10.5281/zenodo.22902401)
+
 Moteur de clearing **day-ahead** conforme au Code régional du marché de l'électricité de l'Afrique de l'Ouest
 (**REMC-WA**, ARREC, résolution 018/ERERA/25), en Python. Il reproduit la formation des prix du marché du jour
 pour le lendemain du Marché régional de la CEDEAO opéré par le WAPP/ICC : ordres horaires, ordres en bloc à
@@ -13,7 +15,9 @@ reprend la famille d'ordres ; les deux sont versionnés dans `docs/`). Aucun cod
 Ce dépôt accompagne le working paper en préparation (`paper/`) :
 
 > Seck, D. (2026). *Un moteur de clearing indépendant pour le marché day-ahead ouest-africain : formulation,
-> propriétés et reproduction du REMC-WA.* Working paper, version 0.1 (en préparation).
+> propriétés et reproduction ouverte des règles du REMC-WA.* Working paper, version 0.4 (brouillon).
+
+Code archivé sur Zenodo : version 0.2.0, DOI [10.5281/zenodo.22902402](https://doi.org/10.5281/zenodo.22902402) ; toutes versions, DOI [10.5281/zenodo.22902401](https://doi.org/10.5281/zenodo.22902401).
 
 *English summary below.*
 

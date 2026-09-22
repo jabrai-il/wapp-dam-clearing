@@ -2,6 +2,8 @@
 
 ## 0.2.0 (2026-09-22)
 
+Archivé sur Zenodo : DOI 10.5281/zenodo.22902402 (concept 10.5281/zenodo.22902401).
+
 - Instance stylisée à quatre zones SN, ML, CI, GN (`examples/wapp4`, deux saisons, 478 ordres horaires et 42 blocs
   par saison, sources publiques documentées) ; `examples/scenarios.py` reproduit les variantes A à E du working paper.
 
