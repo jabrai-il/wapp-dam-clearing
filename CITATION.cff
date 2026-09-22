@@ -1,0 +1,26 @@
+cff-version: 1.2.0
+message: "Si vous utilisez ce moteur, merci de citer le logiciel et le working paper compagnon."
+type: software
+title: "wapp-dam-clearing : moteur de clearing day-ahead conforme au REMC-WA (marché régional CEDEAO / WAPP)"
+version: 0.1.0
+date-released: 2026-09-22
+license: MIT
+repository-code: "https://github.com/jabrai-il/wapp-dam-clearing"
+authors:
+  - family-names: Seck
+    given-names: Djiby
+    email: admin@jabra-il.com
+    website: "https://jabra-il.com"
+keywords:
+  - day-ahead market
+  - market coupling
+  - West African Power Pool
+  - ECOWAS
+  - REMC-WA
+  - block orders
+  - MILP
+abstract: >-
+  Moteur de clearing du marché day-ahead du Marché régional de l'électricité de la CEDEAO, écrit à partir
+  du Code régional (REMC-WA, résolution 018/ERERA/25) : ordres horaires, en bloc, liés et exclusifs,
+  allocation implicite des interconnexions, prix zonaux duaux, itération de cohérence des blocs,
+  validation motivée des ordres. Aucun code propriétaire.
