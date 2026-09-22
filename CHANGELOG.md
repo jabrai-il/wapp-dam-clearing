@@ -1,10 +1,12 @@
 # Changelog
 
-## Non publié
+## 0.3.0 (2026-09-22)
+
+Archivé sur Zenodo sous le DOI concept 10.5281/zenodo.22902401 (le DOI de version est indiqué sur la page Zenodo).
 
 - Cas de référence européen : rejeu de trois journées du marché ibérique OMIE (`examples/omie/`), deux niveaux
   (courbes offertes ; décisions complexes données), 250 prix exacts sur 290, résidu dans l'intervalle d'indétermination.
-- Working paper v0.5 : sous-section « Cas de référence : rejeu du marché ibérique ».
+- Working paper v0.5 : sous-section « Cas de référence : rejeu du marché ibérique », résumés et limites mis à jour.
 
 ## 0.2.0 (2026-09-22)
 
