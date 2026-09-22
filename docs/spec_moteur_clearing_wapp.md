@@ -215,3 +215,10 @@ Voir `proposition_types_ordres_remc.md` pour le détail. Modifications apportée
 # Addendum v0.3 (22 septembre 2026) : cas de référence européen
 
 8. **Cas de référence** (section 8, « cas de référence ») : réalisé sur le marché ibérique OMIE, dont les courbes agrégées quotidiennes sont publiques (`examples/omie/`). Le moteur reproduit le croisement au centime dès lors que les décisions sur les offres complexes sont connues ; le résidu est l'indétermination levée par le couplage avec la France.
+
+# Addendum v0.4 (22 septembre 2026) : ce que le rejeu du marché italien a imposé
+
+9. **Ordres multi-MTU** : un ordre horaire peut porter sur plusieurs MTU consécutifs avec un ratio unique (champ `hours`) ; il entre dans l'équilibre de chaque MTU et sa cohérence s'apprécie sur la moyenne arithmétique des prix de ses MTU (EPD-2025 §5.1). Sans objet au pas horaire du Code (MC 10.3.3), indispensable pour rejouer un marché au quart d'heure où subsistent des ordres de 60 min.
+10. **Règle de prix dans l'intervalle admissible** (`price_rule`) : « dual » (défaut, au plus près du dual du solveur) ou « midpoint » (milieu de l'intervalle admissible de chaque (zone, MTU), affiné aux moindres carrés dans le polyèdre des prix cohérents, EPD-2025 annexe C ; QP convexe résolu par HiGHS/highspy, secours SLSQP en petite taille). Seule la seconde reproduit les prix publiés par un marché EUPHEMIA ; le Code ne dit rien : dixième paramètre à fixer par le SMO.
+11. **Quantité effective** : dans les données GME, la quantité soumise peut être ajustée par le système (`ADJ_QUANTITY_NO`) ; c'est la quantité ajustée qui borne le volume attribué. Rappel utile pour la validation MC 13.1.4 : la quantité validée, pas la quantité soumise, entre dans le clearing.
+

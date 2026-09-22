@@ -78,7 +78,7 @@ En reconstruisant un moteur à partir du Code, j'ai relevé sept points de ce ty
 
 **Pourquoi cela compte ici.** La confiance dans un marché naissant se construit par la vérifiabilité. Si le SMO publie, pour chaque zone et chaque heure, les courbes agrégées d'offre et de demande, les flux et les prix, n'importe quel régulateur ou participant peut recalculer les résultats avec un second moteur et expliquer les écarts. Sinon, les résultats sont un acte de foi.
 
-**Proposition.** Un format de publication ouvert (courbes agrégées, flux par liaison et direction, ATC, prix, volumes par statut de bloc) et l'existence d'au moins un moteur indépendant capable de les rejouer.
+**Proposition.** Un format de publication ouvert (courbes agrégées, flux par liaison et direction, ATC, prix, volumes par statut de bloc) et l'existence d'au moins un moteur indépendant capable de les rejouer. La référence existe : en Europe, les régulateurs nationaux ont imposé en juin 2020 à chaque opérateur désigné la publication des courbes agrégées anonymisées (NEMO Committee, page « aggregated curves »), et l'opérateur italien GME publie le carnet d'ordres complet, anonymisé, sept jours après chaque journée. Le moteur qui accompagne cette note a rejoué trois journées du marché ibérique à partir de ces publications.
 
 **Question.** Ce format est-il défini, et le WAPP accepterait-il un exercice de rejeu sur ses jeux d'essai ?
 

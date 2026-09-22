@@ -1,5 +1,16 @@
 # Changelog
 
+## Non publié
+
+- Moteur : ordres horaires multi-MTU (`HourlyOrder.hours`, ratio unique, dans la monnaie sur la moyenne des prix,
+  EPD-2025 §5.1) ; règle de levée de l'indétermination des prix `price_rule="midpoint"` (milieu de l'intervalle
+  admissible, moindres carrés, EPD-2025 annexe C ; programme quadratique résolu par HiGHS, nouvelle dépendance
+  `highspy`, secours SLSQP pour les petites tailles) ; format CSV : plage d'heures « 5-8 » pour un ordre multi-MTU.
+- Cas de référence multi-zones : rejeu du marché italien GME (`examples/gme/`, `welfare_gme.py`) à partir du carnet d'ordres complet
+  publié à J+7, des limites de transit, des transits et des prix zonaux ; niveaux N2 (blocs fixés, prix et flux) et
+  N3 (blocs libres, décisions de blocs).
+- Working paper v0.6 : filiation du Code, paragraphe MILP vs MIQP, sous-section « rejeu du marché italien ».
+
 ## 0.3.0 (2026-09-22)
 
 Archivé sur Zenodo : DOI 10.5281/zenodo.22902965 (concept 10.5281/zenodo.22902401).

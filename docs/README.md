@@ -2,7 +2,7 @@
 
 | Fichier | Document | Version | Éditeur | Usage |
 |---|---|---|---|---|
-| `euphemia-public-description.pdf` | EUPHEMIA Public Description, Single Price Coupling Algorithm | 18 décembre 2025 (90 p.) | NEMO Committee / PCR PXs | Sémantique des ordres, propriétés de solution, sous-problèmes (§5, §6, §7, §8) |
+| `euphemia-public-description.pdf` | EUPHEMIA Public Description, Single Price Coupling Algorithm | 18 décembre 2025 (90 p.) | NEMO Committee / PCR PXs, https://www.nemo-committee.eu/assets/files/euphemia-public-description.pdf | Sémantique des ordres, propriétés de solution, sous-problèmes (§5, §6, §7, §8) |
 | `remc-wa_regional_electricity_market_code_2025.pdf` | Regional Electricity Market Code of West Africa (REMC-WA), résolution 018/ERERA/25 | 2025 (476 p., bilingue EN/FR) | ARREC/ERERA, WAPP | Règles du DAM : MC 10.3, 13.1, 15.3, 16.1, 13.5.3 |
 | `spec_moteur_clearing_wapp.md` | Spécification fonctionnelle du moteur, v0.1 | 10 septembre 2026 | D. Seck | Cahier des charges du package `wapp_dam` |
 | `proposition_types_ordres_remc.md` | Catalogue exhaustif des types d'ordres Euphemia confrontés au REMC-WA et proposition d'adaptation | 22 septembre 2026 | D. Seck | Base de discussion (SMO, ARREC, utilities) |

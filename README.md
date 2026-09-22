@@ -12,6 +12,11 @@ d'interconnexion (MC 16.1), un prix par zone et par heure (MC 10.3.5), maximisat
 Écrit à partir des seuls textes publics (REMC-WA ; EUPHEMIA Public Description du 18 décembre 2025, dont le Code
 reprend la famille d'ordres ; les deux sont versionnés dans `docs/`). Aucun code ni document propriétaire. Licence MIT.
 
+Périmètre : un code de recherche qui accompagne le working paper. Il ne contient aucune donnée réelle du marché
+ouest-africain (l'instance `wapp4` est stylisée, construite sur des sources publiques citées) et ne constitue ni un
+outil opérationnel ni une prestation de conseil ; les rejeux OMIE et GME utilisent des données publiées par ces
+opérateurs.
+
 Ce dépôt accompagne le working paper en préparation (`paper/`) :
 
 > Seck, D. (2026). *Un moteur de clearing indépendant pour le marché day-ahead ouest-africain : formulation,
@@ -71,8 +76,8 @@ print(r.prices, r.links[0].flow, r.congestion_rent())
 
 ```
 src/wapp_dam/   orders.py (objets), validation.py (MC 13.1.4), model.py (MILP), prices.py (prix, familles), clearing.py (algorithme, départage, rapport), io.py, cli.py
-tests/          19 cas : équilibre, market splitting, pertes, blocs, MAR, familles de blocs liés, exclusifs, non-existence de prix, délestage au prorata, départage, arrondi, écrêtage, validation
-examples/       wapp4/ : instance stylisée 4 zones × 24 h, deux saisons (sources dans son README) ; scenarios.py ; omie/ : rejeu du marché ibérique (cas de référence)
+tests/          20 cas : équilibre, ordre multi-MTU, market splitting, pertes, blocs, MAR, familles de blocs liés, exclusifs, non-existence de prix, délestage au prorata, départage, arrondi, écrêtage, validation
+examples/       wapp4/ : instance stylisée 4 zones × 24 h, deux saisons (sources dans son README) ; scenarios.py ; omie/ : rejeu du marché ibérique ; gme/ : rejeu du marché italien au niveau de l'ordre (cas de référence)
 docs/           spécification v0.1 + addendum v0.2 et v0.3, catalogue des types d'ordres Euphemia vs REMC-WA, note de concerns, sources PDF versionnées
 paper/          working paper (LaTeX) ; make_instance_tables.py régénère l'annexe (instance_tables.tex) depuis le CSV
 ```
@@ -83,6 +88,11 @@ paper/          working paper (LaTeX) ; make_instance_tables.py régénère l'an
 agrégées publiées. Décisions sur les offres complexes prises comme données, le moteur retrouve le prix officiel au centime
 sur 250 des 290 quarts d'heure de trois journées de 2026 ; les écarts restants sont tous dans l'intervalle
 d'indétermination levé par le couplage avec la France. Détail dans `examples/omie/README.md`.
+
+`examples/gme/replay_gme.py DATE --level 2|3` rejoue une journée du marché italien (GME) à partir du carnet d'ordres
+complet publié à J+7, des limites de transit et des transits : 21 zones, 42 arcs, ordres 15/30/60 min et blocs avec
+ratio minimal. Le moteur retrouve le prix zonal au centime sur 92 % des (quart d'heure, zone) et les transits
+internes à quelques MW près. Détail dans `examples/gme/README.md`.
 
 ## Points à confirmer avec le SMO et l'ARREC
 
