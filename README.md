@@ -72,10 +72,17 @@ print(r.prices, r.links[0].flow, r.congestion_rent())
 ```
 src/wapp_dam/   orders.py (objets), validation.py (MC 13.1.4), model.py (MILP), prices.py (prix, familles), clearing.py (algorithme, départage, rapport), io.py, cli.py
 tests/          19 cas : équilibre, market splitting, pertes, blocs, MAR, familles de blocs liés, exclusifs, non-existence de prix, délestage au prorata, départage, arrondi, écrêtage, validation
-examples/       instance stylisée 4 zones (SN, ML, CI, GN) × 24 h, deux saisons, sources dans examples/wapp4/README.md ; scenarios.py
+examples/       wapp4/ : instance stylisée 4 zones × 24 h, deux saisons (sources dans son README) ; scenarios.py ; omie/ : rejeu du marché ibérique (cas de référence)
 docs/           spécification v0.1 + addendum v0.2, catalogue des types d'ordres Euphemia vs REMC-WA, note de concerns, sources PDF versionnées
 paper/          working paper (LaTeX) ; make_instance_tables.py régénère l'annexe (instance_tables.tex) depuis le CSV
 ```
+
+## Cas de référence
+
+`examples/omie/replay_omie.py DATE` rejoue une journée du marché day-ahead ibérique (OMIE) à partir de ses courbes
+agrégées publiées. Décisions sur les offres complexes prises comme données, le moteur retrouve le prix officiel au centime
+sur 250 des 290 quarts d'heure de trois journées de 2026 ; les écarts restants sont tous dans l'intervalle
+d'indétermination levé par le couplage avec la France. Détail dans `examples/omie/README.md`.
 
 ## Points à confirmer avec le SMO et l'ARREC
 
