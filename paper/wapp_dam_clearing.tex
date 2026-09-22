@@ -58,7 +58,7 @@
 \title{\textbf{Un moteur de clearing indépendant pour le marché day-ahead ouest-africain}\\[4pt]
 \large Formulation, propriétés et reproduction ouverte des règles du REMC-WA}
 \author{Djiby Seck\thanks{Chercheur indépendant ; analyste quantitatif spécialisé dans les marchés de l'énergie (EDF R\&D, TotalEnergies, GEMS-Engie) ; créateur de Sakkanal. Contact : \href{mailto:admin@jabra-il.com}{admin@jabra-il.com} ; \url{https://jabra-il.com}. L'auteur s'exprime à titre personnel. Le moteur est écrit à partir des seuls textes publics et ne réutilise aucun code ni document d'un employeur passé ou présent. Licence CC BY 4.0 pour le texte, MIT pour le code. Commentaires bienvenus.}}
-\date{Working paper, version 0.4 (brouillon), septembre 2026}
+\date{Working paper, version 0.5 (brouillon), septembre 2026}
 
 \begin{document}
 \maketitle
@@ -69,7 +69,7 @@
 \noindent Le Code régional du marché de l'électricité de l'Afrique de l'Ouest (REMC-WA, résolution 018/ERERA/25) organise un marché day-ahead centralisé dont les objets (ordres horaires, ordres en bloc à ratio minimal d'acceptation, blocs liés, groupes exclusifs, allocation implicite des interconnexions, un prix par zone et par heure) sont ceux de l'enchère couplée européenne. Personne dans la sous-région n'a encore vu ce marché fonctionner, et les résultats du futur opérateur ne pourront être vérifiés qu'avec un second moteur capable de les reproduire.
 
 \medskip
-\noindent Nous formalisons le clearing prescrit par le Code comme un programme linéaire mixte de maximisation du bien-être régional et caractérisons les prix zonaux compatibles avec une allocation par les conditions de complémentarité des ordres horaires et des flux. Trois propriétés en découlent : l'existence de prix cohérents à blocs figés, leur non-existence en général pour les blocs (d'où la règle du rejet paradoxal, seule compatible avec le Code) et la terminaison de la procédure de fixation des blocs incohérents. Une implémentation ouverte (Python, solveur libre) accompagne l'article, validée sur 19 cas unitaires.
+\noindent Nous formalisons le clearing prescrit par le Code comme un programme linéaire mixte de maximisation du bien-être régional et caractérisons les prix zonaux compatibles avec une allocation par les conditions de complémentarité des ordres horaires et des flux. Trois propriétés en découlent : l'existence de prix cohérents à blocs figés, leur non-existence en général pour les blocs (d'où la règle du rejet paradoxal, seule compatible avec le Code) et la terminaison de la procédure de fixation des blocs incohérents. Une implémentation ouverte (Python, solveur libre) accompagne l'article, validée sur 19 cas unitaires et par le rejeu de trois journées du marché ibérique (OMIE) à partir de ses courbes agrégées publiées : les décisions sur les offres complexes étant prises comme données, le moteur retrouve le prix officiel au centime sur 250 des 290 quarts d'heure, et tous les écarts restants tombent dans l'intervalle d'indétermination que seul le couplage avec la France lève.
 
 \medskip
 \noindent Appliqué à une instance stylisée à quatre zones (Sénégal, Mali, Côte d'Ivoire, Guinée) calibrée sur les rapports publics des opérateurs, le moteur donne au couplage une valeur de 1,1~million d'USD de bien-être par jour en hivernage. En saison sèche, la convention de pertes ordonne les prix le long des chaînes d'importation, un plafond de prix plus bas augmente le délestage en rendant des blocs de pointe incohérents, et un acheteur qui ne peut pas payer le plafond est rationné par son prix, non par la physique : le Mali perd 15~\% de sa demande alors que la capacité d'import existe.\par\smallskip
@@ -93,7 +93,7 @@
 \noindent\textbf{Abstract.} The Regional Electricity Market Code of West Africa (REMC-WA, resolution 018/ERERA/25) sets up a centralised day-ahead market whose objects (hourly orders, block orders with a minimum acceptance ratio, linked blocks, exclusive groups, implicit allocation of cross-border capacity, one price per zone and hour) are those of the European coupled auction. No actor in the region has yet observed such a market in operation, and the future operator's results can only be verified with a second engine able to reproduce them.
 
 \medskip
-\noindent We formalise the clearing prescribed by the Code as a mixed-integer linear programme maximising regional welfare and characterise the zonal prices compatible with an allocation through the complementarity conditions of hourly orders and flows. Three properties follow: coherent prices exist once blocks are fixed; they do not exist in general for blocks (hence the paradoxical-rejection rule, the only one compatible with the Code); and the block-fixing procedure terminates. An open implementation (Python, free solver) accompanies the paper, validated on 19 unit cases.
+\noindent We formalise the clearing prescribed by the Code as a mixed-integer linear programme maximising regional welfare and characterise the zonal prices compatible with an allocation through the complementarity conditions of hourly orders and flows. Three properties follow: coherent prices exist once blocks are fixed; they do not exist in general for blocks (hence the paradoxical-rejection rule, the only one compatible with the Code); and the block-fixing procedure terminates. An open implementation (Python, free solver) accompanies the paper, validated on 19 unit cases and by replaying three days of the Iberian market (OMIE) from its published aggregated curves: taking the complex-order decisions as given, the engine recovers the official price to the cent on 250 of 290 quarter-hours, and every remaining gap falls inside the indeterminacy interval that only the coupling with France resolves.
 
 \medskip
 \noindent Applied to a stylised four-zone instance (Senegal, Mali, Côte d'Ivoire, Guinea) calibrated on the utilities' public reports, the engine values coupling at 1.1~million USD of daily welfare in the wet season. In the dry season, the loss convention orders prices along import chains, a lower price cap increases load shedding by making peak blocks incoherent, and a buyer unable to pay the cap is rationed by its bid, not by physics: Mali loses 15~\% of its demand while import capacity is available.\par\smallskip
@@ -267,6 +267,8 @@ Le code (\url{https://github.com/jabrai-il/wapp-dam-clearing}, licence MIT, vers
 
 \section{Validation}\label{sec:validation}
 
+\subsection{Cas unitaires}
+
 Chaque règle de la section~\ref{sec:formulation} fait l'objet d'un cas unitaire dont la valeur attendue est calculée à la main ; les tableaux~\ref{tab:validation} et~\ref{tab:validation2} les résument (19 tests). Tous sont exécutés à chaque modification du code par l'intégration continue du dépôt.
 
 \begin{table}[H]
@@ -309,12 +311,43 @@ Ordres hors plage, au-delà de la limite de trading, import au-delà de l'ATC, h
 \label{tab:validation2}
 \end{table}
 
-Deux limites doivent être dites.
+Ces cas vérifient la conformité aux règles telles que nous les lisons, pas la conformité aux résultats du futur SMO, qui n'existent pas encore. Dès que des jeux d'essai ou des résultats agrégés seront publiés, le rejeu constituera la validation décisive. En attendant, un marché couplé européen fournit un cas de référence.
+
+\subsection{Cas de référence : rejeu du marché ibérique}\label{sec:omie}
+
+OMIE, l'opérateur du marché day-ahead espagnol et portugais, membre du couplage européen, publie chaque jour sans restriction ses courbes agrégées d'offre et de demande, une ligne par marche avec son statut (offerte ou casée) et sa typologie (simple, condition complexe, échange issu du couplage), ainsi que ses prix marginaux \citep{omie2026}. Depuis octobre 2025 le pas est le quart d'heure, soit 96 MTU. Les échanges avec la France et entre l'Espagne et le Portugal figurent dans les courbes comme des ordres preneurs de prix ; quand les deux pays sont découplés, les courbes sont publiées par pays. Le script \texttt{examples/omie/replay\_omie.py} du dépôt reconstruit, pour chaque MTU et chaque zone, un marché à une période et le fait clearer par le moteur, à deux niveaux.
 
 \begin{itemize}
-\item Ces cas vérifient la conformité aux règles telles que nous les lisons, pas la conformité aux résultats du futur SMO, qui n'existent pas encore. Dès que des jeux d'essai ou des résultats agrégés seront publiés, le rejeu constituera la validation décisive.
-\item La reconstitution d'une journée d'un marché couplé européen à partir de ses courbes agrégées publiées, prévue comme cas de référence, n'est pas incluse dans cette version.
+\item \textbf{N1} : toutes les marches offertes, y compris celles des offres complexes, sans leurs conditions. L'écart au prix officiel mesure ce que pèsent les conditions complexes (revenu minimal, indivisibilité, gradient, arrêt programmé), objets que le Code ne prévoit pas.
+\item \textbf{N2} : les marches complexes sont limitées à celles effectivement casées, c'est-à-dire que les décisions d'activation sont prises comme données. Il ne reste que le croisement des courbes, que le moteur doit reproduire.
 \end{itemize}
+
+\begin{table}[H]
+\centering\small
+\setlength{\tabcolsep}{5pt}\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{p{2.6cm}rrrrrr}
+\toprule
+ & \multicolumn{2}{c}{N1, écart (EUR/MWh)} & \multicolumn{3}{c}{N2} & \\
+Journée & moyen & max & prix exacts & écart moyen & écart max & écarts dans l'intervalle \\
+\midrule
+20 janv. 2026 & 12,75 & 42,38 & 86 / 96 & 0,03 & 0,59 & 10 / 10 \\ \rowsep
+10 juin 2026 & 10,12 & 38,34 & 94 / 96 & 0,01 & 0,78 & 2 / 2 \\ \rowsep
+15 sept. 2026 & 14,40 & 50,67 & 70 / 98 & 0,20 & 4,00 & 28 / 28 \\
+\bottomrule
+\end{tabular}
+\caption{Rejeu de trois journées OMIE. « Prix exacts » : nombre de couples (MTU, zone) où le prix du moteur égale le prix officiel à 0,01~EUR/MWh près ; la journée du 15 septembre compte deux MTU en market splitting, d'où 98 couples. « Écarts dans l'intervalle » : écarts restants dont le prix officiel est strictement compris entre la dernière vente casée et le premier achat casé.}
+\label{tab:omie}
+\end{table}
+
+Trois enseignements (tableau~\ref{tab:omie}).
+
+\begin{itemize}
+\item \textbf{Les conditions complexes pèsent lourd.} Sans elles (N1), le prix est faux de 10 à 14~EUR/MWh en moyenne et jusqu'à 50, parce que des offres désactivées par leur condition de revenu minimal restent dans la courbe. Un marché qui admettrait ces objets sans en publier les décisions serait invérifiable.
+\item \textbf{Le croisement est reproduit.} Une fois ces décisions connues (N2), le moteur retrouve le prix officiel au centime sur 250 des 290 couples, avec un écart moyen de 0,01 à 0,20~EUR/MWh et des volumes casés à quelques MW près.
+\item \textbf{Le résidu est une indétermination, pas une erreur.} Les 40 écarts restants ont tous leur prix officiel strictement à l'intérieur de l'intervalle entre la dernière vente casée et le premier achat casé. Pour l'Ibérie seule, tout prix de cet intervalle est cohérent ; c'est le couplage avec la France, absent des fichiers OMIE, qui le fixe. Le moteur choisit dans l'intervalle par sa règle de prix (section~\ref{sec:algo}) et signale le cas.
+\end{itemize}
+
+Ce rejeu vérifie la formation des prix par ordres horaires et échanges preneurs de prix, à l'échelle réelle (4\,000 à 6\,000 marches par MTU, 20~s par journée). Il ne vérifie pas les blocs, dont OMIE ne publie pas le détail ; les cas unitaires y pourvoient.
 
 \section{Application illustrative}\label{sec:application}
 
@@ -439,12 +472,12 @@ Trois résultats de l'application méritent d'être retenus par les acteurs.
 
 Ces trois points, avec les neuf paramètres de la section~\ref{sec:ouverts}, devraient figurer dans la DAM Clearing Procedure avant le lancement, et être vérifiables par un second moteur.
 
-Les limites de cette version sont connues : fixation gloutonne des blocs sans branchement, dont la perte de bien-être est mesurée et peut dépasser l'effet étudié (variante~D), partage du délestage limité à l'intérieur d'une zone, pas de marché OTC ni de droits de transport, pas de règlement financier, pas de cas de référence rejoué.
+Les limites de cette version sont connues : fixation gloutonne des blocs sans branchement, dont la perte de bien-être est mesurée et peut dépasser l'effet étudié (variante~D), partage du délestage limité à l'intérieur d'une zone, pas de marché OTC ni de droits de transport, pas de règlement financier ; le cas de référence ibérique ne vérifie ni les blocs ni le couplage multi-zones, faute de données publiques au niveau des ordres.
 
 Les étapes suivantes sont, dans l'ordre :
 
 \begin{enumerate}
-\item le rejeu des premiers jeux d'essai ou résultats publiés par le SMO ;
+\item le rejeu des premiers jeux d'essai ou résultats publiés par le SMO, sur le modèle du rejeu ibérique de la section~\ref{sec:omie} ;
 \item une couche de simulation fondamentale (parcs et demandes nationaux à partir des plans directeurs publics) pour produire des scénarios réalistes ;
 \item les couches de stratégie d'offre et de surveillance pour les participants et les régulateurs.
 \end{enumerate}
