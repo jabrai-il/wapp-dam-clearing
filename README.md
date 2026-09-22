@@ -17,7 +17,7 @@ Ce dépôt accompagne le working paper en préparation (`paper/`) :
 > Seck, D. (2026). *Un moteur de clearing indépendant pour le marché day-ahead ouest-africain : formulation,
 > propriétés et reproduction ouverte des règles du REMC-WA.* Working paper, version 0.5 (brouillon).
 
-Code archivé sur Zenodo : version 0.3.0 (DOI concept, toutes versions : [10.5281/zenodo.22902401](https://doi.org/10.5281/zenodo.22902401) ; version 0.2.0 : [10.5281/zenodo.22902402](https://doi.org/10.5281/zenodo.22902402)).
+Code archivé sur Zenodo : version 0.3.0, DOI [10.5281/zenodo.22902965](https://doi.org/10.5281/zenodo.22902965) ; toutes versions, DOI [10.5281/zenodo.22902401](https://doi.org/10.5281/zenodo.22902401).
 
 *English summary below.*
 

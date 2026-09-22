@@ -2,7 +2,7 @@
 
 ## 0.3.0 (2026-09-22)
 
-Archivé sur Zenodo sous le DOI concept 10.5281/zenodo.22902401 (le DOI de version est indiqué sur la page Zenodo).
+Archivé sur Zenodo : DOI 10.5281/zenodo.22902965 (concept 10.5281/zenodo.22902401).
 
 - Cas de référence européen : rejeu de trois journées du marché ibérique OMIE (`examples/omie/`), deux niveaux
   (courbes offertes ; décisions complexes données), 250 prix exacts sur 290, résidu dans l'intervalle d'indétermination.

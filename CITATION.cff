@@ -5,7 +5,7 @@ title: "wapp-dam-clearing : moteur de clearing day-ahead conforme au REMC-WA (ma
 version: 0.3.0
 date-released: 2026-09-22
 license: MIT
-doi: 10.5281/zenodo.22902401
+doi: 10.5281/zenodo.22902965
 repository-code: "https://github.com/jabrai-il/wapp-dam-clearing"
 authors:
   - family-names: Seck
