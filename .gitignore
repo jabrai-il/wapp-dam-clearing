@@ -17,3 +17,4 @@ paper/*.toc
 paper/*.synctex.gz
 paper/*.fls
 paper/*.fdb_latexmk
+examples/omie/data/
