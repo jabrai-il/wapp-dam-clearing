@@ -2,6 +2,8 @@
 
 ## 0.5.0 (2026-09-23)
 
+Archivé sur Zenodo : DOI 10.5281/zenodo.22905703 (concept 10.5281/zenodo.22902401).
+
 Refactorisation sans changement de résultat (rejeux OMIE et GME identiques, 21 tests).
 
 - Architecture : le solveur numérique est abstrait derrière le protocole `Solver` (`solvers.py` : `solve_milp`,
