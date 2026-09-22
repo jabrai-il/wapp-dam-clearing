@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "wapp-dam-clearing"
-version = "0.3.0"
+version = "0.4.0"
 description = "Moteur de clearing day-ahead conforme au REMC-WA (marché régional CEDEAO / WAPP) : MILP, prix zonaux duaux, ordres en bloc, allocation implicite des ATC."
 readme = "README.md"
 license = { text = "MIT" }

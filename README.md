@@ -20,9 +20,9 @@ opérateurs.
 Ce dépôt accompagne le working paper en préparation (`paper/`) :
 
 > Seck, D. (2026). *Un moteur de clearing indépendant pour le marché day-ahead ouest-africain : formulation,
-> propriétés et reproduction ouverte des règles du REMC-WA.* Working paper, version 0.5 (brouillon).
+> propriétés et reproduction ouverte des règles du REMC-WA.* Working paper, version 0.6 (brouillon).
 
-Code archivé sur Zenodo : version 0.3.0, DOI [10.5281/zenodo.22902965](https://doi.org/10.5281/zenodo.22902965) ; toutes versions, DOI [10.5281/zenodo.22902401](https://doi.org/10.5281/zenodo.22902401).
+Code archivé sur Zenodo : version 0.4.0 (DOI concept, toutes versions : [10.5281/zenodo.22902401](https://doi.org/10.5281/zenodo.22902401) ; version 0.3.0 : [10.5281/zenodo.22902965](https://doi.org/10.5281/zenodo.22902965)).
 
 *English summary below.*
 
@@ -78,7 +78,7 @@ print(r.prices, r.links[0].flow, r.congestion_rent())
 src/wapp_dam/   orders.py (objets), validation.py (MC 13.1.4), model.py (MILP), prices.py (prix, familles), clearing.py (algorithme, départage, rapport), io.py, cli.py
 tests/          20 cas : équilibre, ordre multi-MTU, market splitting, pertes, blocs, MAR, familles de blocs liés, exclusifs, non-existence de prix, délestage au prorata, départage, arrondi, écrêtage, validation
 examples/       wapp4/ : instance stylisée 4 zones × 24 h, deux saisons (sources dans son README) ; scenarios.py ; omie/ : rejeu du marché ibérique ; gme/ : rejeu du marché italien au niveau de l'ordre (cas de référence)
-docs/           spécification v0.1 + addendum v0.2 et v0.3, catalogue des types d'ordres Euphemia vs REMC-WA, note de concerns, sources PDF versionnées
+docs/           spécification v0.1 + addendums v0.2 à v0.4, catalogue des types d'ordres Euphemia vs REMC-WA, note de concerns, sources PDF versionnées
 paper/          working paper (LaTeX) ; make_instance_tables.py régénère l'annexe (instance_tables.tex) depuis le CSV
 ```
 
