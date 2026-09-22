@@ -18,3 +18,4 @@ paper/*.synctex.gz
 paper/*.fls
 paper/*.fdb_latexmk
 examples/omie/data/
+examples/gme/data/
